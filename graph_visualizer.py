@@ -2,8 +2,8 @@ import sys
 from PyQt6.QtWidgets import (QApplication, QMainWindow, QWidget, QVBoxLayout, 
                            QHBoxLayout, QPushButton, QLabel, QFileDialog, 
                            QTextEdit, QMessageBox, QCheckBox, QInputDialog,
-                           QMenu)
-from PyQt6.QtCore import Qt, QPoint, QPointF
+                           QMenu, QSlider)
+from PyQt6.QtCore import Qt, QPoint, QPointF, QTimer, QThread, pyqtSignal
 from PyQt6.QtGui import QPainter, QPen, QColor, QPainterPath
 import networkx as nx
 import numpy as np
@@ -26,6 +26,9 @@ class GraphWidget(QWidget):
         self.adding_vertex = False
         self.edge_start = None
         self.visited_vertices = set()  # для подсветки посещенных вершин
+        self.bfs_current = None  # текущая обрабатываемая вершина в BFS
+        self.bfs_path = []  # путь обхода
+        self.bfs_current_edge = None  # текущее рассматриваемое ребро
         self.setMinimumSize(600, 400)
         self.setMouseTracking(True)
         self.main_window = main_window
@@ -106,7 +109,6 @@ class GraphWidget(QWidget):
         for edge in self.graph.edges():
             start = self.vertex_positions[edge[0]]
             end = self.vertex_positions[edge[1]]
-            painter.setPen(QPen(Qt.GlobalColor.black, 2))
             
             # Вычисляем точки начала и конца линии с учетом радиуса вершины
             angle = np.arctan2(end.y() - start.y(), end.x() - start.x())
@@ -114,6 +116,14 @@ class GraphWidget(QWidget):
             start_y = start.y() + 20 * np.sin(angle)
             end_x = end.x() - 20 * np.cos(angle)
             end_y = end.y() - 20 * np.sin(angle)
+            
+            # Определяем цвет ребра
+            if edge == self.bfs_current_edge:
+                painter.setPen(QPen(QColor(255, 165, 0), 3))  # оранжевый для текущего ребра
+            elif (edge[0], edge[1]) in self.bfs_path or (edge[1], edge[0]) in self.bfs_path:
+                painter.setPen(QPen(QColor(144, 238, 144), 3))  # светло-зеленый для пройденного пути
+            else:
+                painter.setPen(QPen(Qt.GlobalColor.black, 2))
             
             # Рисуем линию
             painter.drawLine(QPoint(int(start_x), int(start_y)), 
@@ -150,8 +160,10 @@ class GraphWidget(QWidget):
             else:
                 painter.setPen(QPen(Qt.GlobalColor.black, 2))
             
-            # Устанавливаем цвет вершины в зависимости от того, посещена она или нет
-            if vertex in self.visited_vertices:
+            # Устанавливаем цвет вершины в зависимости от состояния
+            if vertex == self.bfs_current:
+                painter.setBrush(QColor(255, 165, 0))  # оранжевый для текущей вершины
+            elif vertex in self.visited_vertices:
                 painter.setBrush(QColor(144, 238, 144))  # светло-зеленый для посещенных
             else:
                 painter.setBrush(QColor(200, 200, 200))  # серый для непосещенных
@@ -303,6 +315,26 @@ class GraphWidget(QWidget):
         self.edge_start = None
         self.setCursor(Qt.CursorShape.ArrowCursor)
 
+class SpeedController(QThread):
+    """Отдельный поток для управления скоростью анимации"""
+    speed_changed = pyqtSignal(int)  # сигнал для обновления скорости
+
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self.running = True
+        self.current_speed = 1000  # начальная скорость
+
+    def run(self):
+        while self.running:
+            self.speed_changed.emit(self.current_speed)
+            self.msleep(100)  # проверяем каждые 100мс
+
+    def update_speed(self, new_speed):
+        self.current_speed = new_speed
+
+    def stop(self):
+        self.running = False
+
 class MainWindow(QMainWindow):
     def __init__(self):
         super().__init__()
@@ -388,6 +420,63 @@ class MainWindow(QMainWindow):
             }
         """)
         
+        # Создаем виджет для отображения пояснений
+        self.explanation_widget = QTextEdit()
+        self.explanation_widget.setReadOnly(True)
+        self.explanation_widget.setVisible(True)
+        self.explanation_widget.setMinimumHeight(100)
+        self.explanation_widget.setStyleSheet("""
+            QTextEdit {
+                background-color: #f0f0f0;
+                border: 1px solid #ccc;
+                border-radius: 5px;
+                padding: 10px;
+                font-family: 'Arial', sans-serif;
+                font-size: 14px;
+            }
+        """)
+        
+        # Создаем контроллер скорости
+        self.speed_controller = SpeedController(self)
+        self.speed_controller.speed_changed.connect(self.update_animation_speed)
+        self.speed_controller.start()
+        
+        # Создаем ползунок для регулировки скорости
+        speed_layout = QHBoxLayout()
+        speed_label = QLabel("Скорость:")
+        self.speed_slider = QSlider(Qt.Orientation.Horizontal)
+        self.speed_slider.setMinimum(100)   # минимальная задержка (быстрее)
+        self.speed_slider.setMaximum(2000)  # максимальная задержка (медленнее)
+        self.speed_slider.setValue(1000)    # начальное значение (1 секунда)
+        self.speed_slider.setFixedWidth(200)  # увеличиваем ширину
+        self.speed_slider.setStyleSheet("""
+            QSlider::groove:horizontal {
+                border: 1px solid #999999;
+                height: 8px;
+                background: #cccccc;
+                margin: 2px 0;
+            }
+            QSlider::handle:horizontal {
+                background: #4a90e2;
+                border: 1px solid #5c5c5c;
+                width: 18px;
+                margin: -2px 0;
+                border-radius: 3px;
+            }
+            QSlider::sub-page:horizontal {
+                background: #4a90e2;
+                border-radius: 3px;
+            }
+        """)
+        self.speed_slider.valueChanged.connect(self.update_speed)
+        speed_layout.addWidget(speed_label)
+        speed_layout.addWidget(self.speed_slider)
+        speed_layout.addStretch()
+        
+        # Создаем таймер для анимации
+        self.animation_timer = QTimer()
+        self.animation_timer.timeout.connect(self.next_bfs_step)
+        
         # Создаем виджет графа
         self.graph_widget = GraphWidget(self)
         
@@ -398,6 +487,8 @@ class MainWindow(QMainWindow):
         matrix_layout.addWidget(self.apply_matrix_btn)
         main_layout.addLayout(matrix_layout)
         main_layout.addWidget(self.pseudocode_widget)
+        main_layout.addWidget(self.explanation_widget)
+        main_layout.addLayout(speed_layout)
         main_layout.addWidget(self.graph_widget)
         
         # Подключаем сигналы
@@ -412,7 +503,8 @@ class MainWindow(QMainWindow):
         main_layout.setStretch(0, 1)  # tools_panel
         main_layout.setStretch(1, 1)  # matrix_layout
         main_layout.setStretch(2, 1)  # pseudocode_widget
-        main_layout.setStretch(3, 4)  # graph_widget
+        main_layout.setStretch(3, 1)  # explanation_widget
+        main_layout.setStretch(4, 4)  # graph_widget
 
     def load_graph_from_file(self):
         file_name, _ = QFileDialog.getOpenFileName(self, "Выберите файл с графом", "", "Text Files (*.txt)")
@@ -560,29 +652,65 @@ class MainWindow(QMainWindow):
     def show_pseudocode(self, algorithm):
         """Показывает псевдокод выбранного алгоритма"""
         pseudocodes = {
-            'BFS': '''BFS(G, start):
-    visited = ∅
-    queue = [start]
-    result = []
-    
-    while queue is not empty:
-        vertex = queue.pop(0)
-        result.append(vertex)
-        visited.add(vertex)
-        
-        for neighbor in G.neighbors(vertex):
-            if neighbor not in visited:
-                visited.add(neighbor)
-                queue.append(neighbor)
-    
-    return result'''
+            'BFS': '''Алгоритм BFS (поиск в ширину):
+1. Инициализация:
+   visited = ∅        // множество посещенных вершин
+   queue = [start]    // очередь вершин для обработки
+   result = []        // результат обхода
+
+2. Основной цикл:
+   Пока queue не пуста:
+       vertex = queue.pop(0)    // берем первую вершину из очереди
+       result.append(vertex)    // добавляем в результат
+       visited.add(vertex)      // помечаем как посещенную
+
+       // Обработка соседей:
+       Для каждого соседа neighbor вершины vertex:
+           Если neighbor не посещен:
+               visited.add(neighbor)    // помечаем как посещенного
+               queue.append(neighbor)    // добавляем в очередь
+
+3. Завершение:
+   Возвращаем result'''
         }
         
         if algorithm in pseudocodes:
             self.pseudocode_widget.setPlainText(pseudocodes[algorithm])
             self.pseudocode_widget.setVisible(True)
+            # Сохраняем оригинальный псевдокод для подсветки
+            self.current_pseudocode = pseudocodes[algorithm]
+            self.current_algorithm = algorithm
         else:
             self.pseudocode_widget.setVisible(False)
+
+    def highlight_pseudocode_line(self, line_number):
+        """Подсвечивает указанную строку в псевдокоде"""
+        if not hasattr(self, 'current_pseudocode'):
+            return
+            
+        lines = self.current_pseudocode.split('\n')
+        highlighted_lines = []
+        
+        for i, line in enumerate(lines):
+            if i == line_number:
+                # Добавляем HTML-разметку для подсветки текущей строки
+                highlighted_lines.append(f'<span style="background-color: #fff3cd;">{line}</span>')
+            else:
+                highlighted_lines.append(line)
+        
+        # Объединяем строки обратно с сохранением переносов строк
+        highlighted_text = '<br>'.join(highlighted_lines)
+        self.pseudocode_widget.setHtml(highlighted_text)
+
+    def update_speed(self):
+        """Обновляет скорость в контроллере"""
+        self.speed_controller.update_speed(self.speed_slider.value())
+
+    def update_animation_speed(self, new_speed):
+        """Обновляет скорость анимации"""
+        if hasattr(self, 'animation_timer') and self.animation_timer.isActive():
+            self.current_delay = new_speed
+            self.animation_timer.setInterval(self.current_delay)
 
     def start_bfs(self):
         """Запускает алгоритм BFS"""
@@ -608,12 +736,123 @@ class MainWindow(QMainWindow):
         )
         
         if ok and vertex in vertices:
-            # Запускаем BFS
-            result = self.graph_widget.bfs(vertex)
+            # Инициализируем BFS
+            self.bfs_queue = [vertex]
+            self.bfs_visited = {vertex}
+            self.bfs_result = []
+            self.bfs_current = None
+            self.bfs_path = []  # инициализируем путь
+            self.graph_widget.bfs_path = []  # инициализируем путь в виджете графа
+            
+            # Очищаем предыдущие пояснения
+            self.explanation_widget.clear()
+            self.explanation_widget.append("Начинаем обход графа в ширину...")
+            
+            # Подсвечиваем первую строку псевдокода
+            self.highlight_pseudocode_line(0)
+            
+            # Инициализируем текущую задержку
+            self.current_delay = self.speed_slider.value()
+            
+            # Запускаем анимацию с текущей скоростью
+            self.animation_timer.setInterval(self.current_delay)
+            self.animation_timer.start()
+
+    def next_bfs_step(self):
+        """Выполняет следующий шаг BFS"""
+        if not self.bfs_queue:
+            # Алгоритм завершен
+            self.animation_timer.stop()
+            # Подсвечиваем последнюю строку псевдокода
+            self.highlight_pseudocode_line(12)  # Возвращаем result
             QMessageBox.information(
                 self, "Результат BFS",
-                f"Порядок обхода вершин: {' -> '.join(map(str, result))}"
+                f"Порядок обхода вершин: {' -> '.join(map(str, self.bfs_result))}"
             )
+            return
+            
+        # Берем следующую вершину из очереди
+        current = self.bfs_queue.pop(0)
+        self.bfs_result.append(current)
+        self.bfs_current = current
+        
+        # Обновляем пояснение
+        self.explanation_widget.append(f"\nШаг {len(self.bfs_result)}:")
+        
+        # Подсвечиваем строку извлечения вершины из очереди
+        self.highlight_pseudocode_line(6)  # vertex = queue.pop(0)
+        self.explanation_widget.append(f"Извлекаем вершину {current} из очереди")
+        QApplication.processEvents()
+        QThread.msleep(self.current_delay)  # Используем текущую задержку
+        
+        # Получаем соседей текущей вершины
+        if isinstance(self.graph_widget.graph, nx.DiGraph):
+            neighbors = list(self.graph_widget.graph.successors(current))
+        else:
+            neighbors = list(self.graph_widget.graph.neighbors(current))
+            
+        if neighbors:
+            self.explanation_widget.append(f"Рассматриваем рёбра из вершины {current}:")
+            # Подсвечиваем строку цикла по соседям
+            self.highlight_pseudocode_line(8)  # Для каждого соседа neighbor вершины vertex:
+            QApplication.processEvents()
+            QThread.msleep(self.current_delay)
+            
+            # Добавляем непосещенных соседей в очередь
+            for neighbor in neighbors:
+                # Подсвечиваем текущее ребро
+                self.graph_widget.bfs_current_edge = (current, neighbor)
+                self.graph_widget.update()
+                
+                if neighbor not in self.bfs_visited:
+                    # Подсвечиваем строку проверки посещенности
+                    self.highlight_pseudocode_line(9)  # Если neighbor не посещен:
+                    QApplication.processEvents()
+                    QThread.msleep(self.current_delay)
+                    
+                    self.bfs_visited.add(neighbor)
+                    self.bfs_queue.append(neighbor)
+                    self.bfs_path.append((current, neighbor))  # добавляем ребро в путь
+                    self.graph_widget.bfs_path = self.bfs_path  # обновляем путь в виджете графа
+                    self.explanation_widget.append(f"  • Ребро ({current} -> {neighbor}) - вершина {neighbor} добавлена в очередь")
+                    
+                    # Подсвечиваем строку добавления в очередь
+                    self.highlight_pseudocode_line(10)  # queue.append(neighbor)
+                    QApplication.processEvents()
+                    QThread.msleep(self.current_delay)
+                else:
+                    self.explanation_widget.append(f"  • Ребро ({current} -> {neighbor}) - вершина {neighbor} уже посещена")
+                    # Подсвечиваем строку проверки посещенности
+                    self.highlight_pseudocode_line(9)  # Если neighbor не посещен:
+                    QApplication.processEvents()
+                    QThread.msleep(self.current_delay)
+            
+            # Сбрасываем подсветку текущего ребра
+            self.graph_widget.bfs_current_edge = None
+        else:
+            self.explanation_widget.append(f"У вершины {current} нет непосещенных соседей")
+            # Подсвечиваем строку цикла по соседям
+            self.highlight_pseudocode_line(8)  # Для каждого соседа neighbor вершины vertex:
+            QApplication.processEvents()
+            QThread.msleep(self.current_delay)
+        
+        # Показываем текущее состояние очереди
+        if self.bfs_queue:
+            self.explanation_widget.append(f"\nТекущая очередь: {' -> '.join(map(str, self.bfs_queue))}")
+            # Подсвечиваем строку проверки очереди
+            self.highlight_pseudocode_line(5)  # Пока queue не пуста:
+            QApplication.processEvents()
+            QThread.msleep(self.current_delay)
+        
+        # Обновляем отображение
+        self.graph_widget.visited_vertices = self.bfs_visited
+        self.graph_widget.update()
+
+    def closeEvent(self, event):
+        """Обработчик закрытия окна"""
+        self.speed_controller.stop()
+        self.speed_controller.wait()
+        super().closeEvent(event)
 
 if __name__ == '__main__':
     # Устанавливаем переменную окружения для использования X11 вместо Wayland
