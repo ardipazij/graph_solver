@@ -29,6 +29,10 @@ class GraphWidget(QWidget):
         self.bfs_current = None  # текущая обрабатываемая вершина в BFS
         self.bfs_path = []  # путь обхода
         self.bfs_current_edge = None  # текущее рассматриваемое ребро
+        self.distances = {}  # расстояния для алгоритма Дейкстры
+        self.comparison_text = {}  # текст сравнения для отображения над вершинами
+        self.waiting_for_vertex_selection = False  # ожидание выбора вершины
+        self.vertex_selection_callback = None  # callback для выбора вершины
         self.setMinimumSize(600, 400)
         self.setMouseTracking(True)
         self.main_window = main_window
@@ -143,14 +147,25 @@ class GraphWidget(QWidget):
             painter.setPen(QPen(Qt.GlobalColor.black, 2))
         
         if vertex == self.bfs_current:
-            painter.setBrush(QColor(255, 165, 0))
+            painter.setBrush(QColor(255, 165, 0))  # оранжевый
         elif vertex in self.visited_vertices:
-            painter.setBrush(QColor(144, 238, 144))
+            painter.setBrush(QColor(144, 238, 144))  # светло-зеленый
         else:
-            painter.setBrush(QColor(200, 200, 200))
+            painter.setBrush(QColor(200, 200, 200))  # серый
             
         painter.drawEllipse(pos, 20, 20)
         painter.drawText(pos.x() - 5, pos.y() + 5, str(vertex))
+        
+        # Отображаем расстояние над вершиной
+        if vertex in self.distances:
+            distance = self.distances[vertex]
+            distance_text = "∞" if distance == float('inf') else str(distance)
+            painter.drawText(pos.x() - 15, pos.y() - 25, distance_text)
+        
+        # Отображаем текст сравнения над расстоянием, если есть
+        if vertex in self.comparison_text:
+            comparison = self.comparison_text[vertex]
+            painter.drawText(pos.x() - 20, pos.y() - 40, comparison)
 
     def mousePressEvent(self, event):
         """Обработчик нажатия кнопки мыши"""
@@ -158,10 +173,17 @@ class GraphWidget(QWidget):
             pos = event.position().toPoint()
             self.last_mouse_pos = pos
             
+            vertex = self.find_vertex_at(pos)
+            
+            # Проверяем, ожидается ли выбор вершины для алгоритма
+            if self.waiting_for_vertex_selection and vertex is not None:
+                if self.vertex_selection_callback:
+                    self.vertex_selection_callback(vertex)
+                return
+            
             if self.adding_vertex and self.main_window.add_vertex_btn.isChecked():
                 self._add_new_vertex(pos)
             else:
-                vertex = self.find_vertex_at(pos)
                 if self.adding_edge and self.main_window.add_edge_btn.isChecked():
                     self._handle_edge_creation(vertex)
                 else:

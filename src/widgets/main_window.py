@@ -10,7 +10,7 @@ from PyQt6.QtCore import Qt, QTimer, QDateTime, QPropertyAnimation
 import networkx as nx
 
 from widgets.graph_widget import GraphWidget
-from algorithms.graph_algorithms import BFSAlgorithm, DFSAlgorithm
+from algorithms.graph_algorithms import BFSAlgorithm, DFSAlgorithm, DijkstraAlgorithm
 from utils.graph_utils import (load_graph_from_file, save_graph_to_file,
                            parse_matrix, create_graph_from_adjacency_matrix,
                            create_graph_from_incidence_matrix, is_weighted)
@@ -32,6 +32,7 @@ class MainWindow(QMainWindow):
         # Инициализация алгоритмов
         self.bfs_algorithm = BFSAlgorithm(self)
         self.dfs_algorithm = DFSAlgorithm(self)
+        self.dijkstra_algorithm = DijkstraAlgorithm(self)
         
         # Инициализация состояния
         self.is_paused = False
@@ -88,10 +89,11 @@ class MainWindow(QMainWindow):
         self.add_edge_btn = QPushButton("Добавить ребро")
         
         # Создаем кнопку с выпадающим меню для алгоритмов
-        self.algorithms_btn = QPushButton("Алгоритмы обхода")
+        self.algorithms_btn = QPushButton("Алгоритмы")
         self.algorithms_menu = QMenu()
-        self.bfs_action = self.algorithms_menu.addAction("BFS")
-        self.dfs_action = self.algorithms_menu.addAction("DFS")
+        self.bfs_action = self.algorithms_menu.addAction("BFS (поиск в ширину)")
+        self.dfs_action = self.algorithms_menu.addAction("DFS (поиск в глубину)")
+        self.dijkstra_action = self.algorithms_menu.addAction("Поиск кратчайшего пути")
         self.algorithms_btn.setMenu(self.algorithms_menu)
         
         # Создаем кнопку справки
@@ -329,6 +331,7 @@ class MainWindow(QMainWindow):
         self.apply_matrix_btn.clicked.connect(self.apply_matrix)
         self.bfs_action.triggered.connect(self.start_bfs)
         self.dfs_action.triggered.connect(self.start_dfs)
+        self.dijkstra_action.triggered.connect(self.start_dijkstra)
         self.directed_checkbox.stateChanged.connect(self.on_directed_changed)
         self.weighted_checkbox.stateChanged.connect(self.on_weighted_changed)
         self.speed_slider.valueChanged.connect(self.on_speed_changed)
@@ -575,7 +578,30 @@ class MainWindow(QMainWindow):
                    stack.append(neighbor)    // добавляем в стек
 
 3. Завершение:
-   Возвращаем result'''
+   Возвращаем result''',
+            
+            'Dijkstra': '''Алгоритм поиска кратчайшего пути (Дейкстра):
+1. Инициализация:
+   distances = {v: ∞ для всех вершин v}  // расстояния до вершин
+   previous = {v: null для всех вершин v} // предыдущие вершины
+   unvisited = все вершины графа         // непосещенные вершины
+   distances[start] = 0                   // расстояние до начальной вершины
+
+2. Основной цикл:
+   Пока есть непосещенные вершины:
+       v = вершина с min расстоянием среди непосещенных
+       Если v не найдена, выход         // нет пути до оставшихся вершин
+       Помечаем v как посещенную
+       
+       // Обновляем расстояния до соседей:
+       Для каждого соседа u вершины v:
+           d = distances[v] + вес ребра (v,u)
+           Если d < distances[u]:
+               distances[u] = d          // найден более короткий путь
+               previous[u] = v           // запоминаем предыдущую вершину
+
+3. Завершение:
+   Возвращаем distances, previous       // кратчайшие пути найдены'''
         }
         
         if algorithm in pseudocodes:
@@ -613,8 +639,9 @@ class MainWindow(QMainWindow):
                 self.animation_timer.stop()
         else:
             if hasattr(self, 'animation_timer'):
-                if ((hasattr(self.bfs_algorithm, 'queue') and self.bfs_algorithm.queue) or 
-                    (hasattr(self.dfs_algorithm, 'stack') and self.dfs_algorithm.stack)):
+                if (hasattr(self.bfs_algorithm, 'queue') and self.bfs_algorithm.queue) or \
+                   (hasattr(self.dfs_algorithm, 'stack') and self.dfs_algorithm.stack) or \
+                   (hasattr(self.dijkstra_algorithm, 'distances') and self.dijkstra_algorithm.distances):
                     self.animation_timer.start()
 
     def on_speed_changed(self, value):
@@ -709,6 +736,64 @@ class MainWindow(QMainWindow):
             self.pause_btn.setChecked(False)
             self.pause_btn.setText("⏸")
             self.is_paused = False
+            
+            # Запускаем анимацию
+            self.animation_timer.setInterval(self.current_delay)
+            self.animation_timer.start()
+
+    def start_dijkstra(self):
+        """Запускает алгоритм поиска кратчайшего пути"""
+        if not self.graph_widget.graph.nodes():
+            QMessageBox.warning(self, "Ошибка", "Граф пуст")
+            return
+            
+        if not self.weighted_checkbox.isChecked():
+            response = QMessageBox.question(
+                self,
+                "Предупреждение",
+                "Граф не взвешенный. Все рёбра будут иметь вес 1. Продолжить?",
+                QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No
+            )
+            if response == QMessageBox.StandardButton.No:
+                return
+            
+        self.show_pseudocode('Dijkstra')
+        
+        # Показываем сообщение о необходимости выбрать начальную вершину
+        self.algorithm_step_label.setText("Выберите начальную вершину")
+        self.algorithm_step_label.setVisible(True)
+        self.opacity_effect.setOpacity(1.0)
+        
+        # Включаем режим выбора вершины
+        self.graph_widget.waiting_for_vertex_selection = True
+        self.graph_widget.vertex_selection_callback = self._on_dijkstra_vertex_selected
+        self.graph_widget.update()  # Обновляем отображение
+
+    def _on_dijkstra_vertex_selected(self, vertex):
+        """Обработчик выбора вершины для алгоритма Дейкстры"""
+        if not hasattr(self.dijkstra_algorithm, 'waiting_for_end') or not self.dijkstra_algorithm.waiting_for_end:
+            # Первый клик - выбор начальной вершины
+            # Создаем и настраиваем таймер анимации
+            self.animation_timer = QTimer()
+            self.animation_timer.timeout.connect(lambda: self._algorithm_step(self.dijkstra_algorithm))
+            
+            # Запускаем алгоритм
+            message = self.dijkstra_algorithm.start(vertex)
+            self.algorithm_step_label.setText(message)
+            
+            # Используем текущее значение скорости
+            speed_multipliers = {0: 0.25, 1: 0.5, 2: 1.0, 3: 2.0, 4: 4.0}
+            current_multiplier = speed_multipliers[self.speed_slider.value()]
+            self.current_delay = int(1000 / current_multiplier)
+            
+            # Сбрасываем состояние паузы
+            self.pause_btn.setChecked(False)
+            self.pause_btn.setText("⏸")
+            self.is_paused = False
+        else:
+            # Второй клик - выбор конечной вершины
+            message = self.dijkstra_algorithm.set_end_vertex(vertex)
+            self.algorithm_step_label.setText(message)
             
             # Запускаем анимацию
             self.animation_timer.setInterval(self.current_delay)
@@ -821,6 +906,7 @@ class MainWindow(QMainWindow):
         <ul>
             <li>BFS (поиск в ширину)</li>
             <li>DFS (поиск в глубину)</li>
+            <li>Dijkstra (поиск кратчайшего пути)</li>
         </ul>
     </li>
 </ul>
