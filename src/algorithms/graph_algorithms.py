@@ -38,29 +38,33 @@ class BFSAlgorithm(GraphAlgorithm):
         self.reset()
         self.queue = [start_vertex]
         self.visited = {start_vertex}
+        message = "Начинаем обход графа в ширину..."
         self.main_window.explanation_widget.clear()
-        self.main_window.explanation_widget.append("Начинаем обход графа в ширину...")
+        self.main_window.explanation_widget.append(message)
         self.main_window.highlight_pseudocode_line(0)
         self.main_window.graph_widget.visited_vertices = self.visited
         self.main_window.graph_widget.bfs_current = start_vertex
         self.main_window.graph_widget.update()
+        return message
 
     def next_step(self):
         """Выполняет следующий шаг алгоритма BFS"""
         if not self.queue:
-            self.main_window.explanation_widget.append("Обход завершен!")
+            message = "Обход завершен!"
+            self.main_window.explanation_widget.append(message)
             self.main_window.highlight_pseudocode_line(16)
             self.main_window.graph_widget.bfs_current = None
             self.main_window.graph_widget.bfs_current_edge = None
             self.main_window.graph_widget.update()
-            return True
+            return True, message
 
         # Извлекаем вершину из очереди
         vertex = self.queue.pop(0)
         self.current = vertex
         self.result.append(vertex)
         self.main_window.graph_widget.bfs_current = vertex
-        self.main_window.explanation_widget.append(f"Обрабатываем вершину {vertex}")
+        message = f"Обрабатываем вершину {vertex}"
+        self.main_window.explanation_widget.append(message)
         self.main_window.highlight_pseudocode_line(7)
         
         # Получаем соседей в отсортированном порядке
@@ -72,9 +76,8 @@ class BFSAlgorithm(GraphAlgorithm):
             self.main_window.graph_widget.update()
             
             if neighbor not in self.visited:
-                self.main_window.explanation_widget.append(
-                    f"Найден непосещенный сосед: {neighbor}"
-                )
+                message = f"Найден непосещенный сосед: {neighbor}"
+                self.main_window.explanation_widget.append(message)
                 self.main_window.highlight_pseudocode_line(12)
                 self.visited.add(neighbor)
                 self.queue.append(neighbor)
@@ -82,13 +85,12 @@ class BFSAlgorithm(GraphAlgorithm):
                 self.main_window.graph_widget.visited_vertices = self.visited
                 self.main_window.graph_widget.bfs_path = self.path
             else:
-                self.main_window.explanation_widget.append(
-                    f"Сосед {neighbor} уже был посещен"
-                )
+                message = f"Сосед {neighbor} уже был посещен"
+                self.main_window.explanation_widget.append(message)
         
         self.main_window.graph_widget.bfs_current_edge = None
         self.main_window.graph_widget.update()
-        return False
+        return False, message
 
 class DFSAlgorithm(GraphAlgorithm):
     """Реализация алгоритма поиска в глубину (DFS)"""
@@ -101,21 +103,24 @@ class DFSAlgorithm(GraphAlgorithm):
         """Начинает обход с указанной вершины"""
         self.reset()
         self.stack = [start_vertex]
+        message = "Начинаем обход графа в глубину..."
         self.main_window.explanation_widget.clear()
-        self.main_window.explanation_widget.append("Начинаем обход графа в глубину...")
+        self.main_window.explanation_widget.append(message)
         self.main_window.highlight_pseudocode_line(0)
         self.main_window.graph_widget.bfs_current = start_vertex
         self.main_window.graph_widget.update()
+        return message
 
     def next_step(self):
         """Выполняет следующий шаг алгоритма DFS"""
         if not self.stack:
-            self.main_window.explanation_widget.append("Обход завершен!")
+            message = "Обход завершен!"
+            self.main_window.explanation_widget.append(message)
             self.main_window.highlight_pseudocode_line(16)
             self.main_window.graph_widget.bfs_current = None
             self.main_window.graph_widget.bfs_current_edge = None
             self.main_window.graph_widget.update()
-            return True
+            return True, message
 
         # Извлекаем вершину из стека
         vertex = self.stack.pop()
@@ -126,7 +131,8 @@ class DFSAlgorithm(GraphAlgorithm):
             self.visited.add(vertex)
             self.result.append(vertex)
             self.main_window.graph_widget.visited_vertices = self.visited
-            self.main_window.explanation_widget.append(f"Обрабатываем вершину {vertex}")
+            message = f"Обрабатываем вершину {vertex}"
+            self.main_window.explanation_widget.append(message)
             self.main_window.highlight_pseudocode_line(7)
             
             # Получаем соседей в обратном отсортированном порядке
@@ -138,18 +144,19 @@ class DFSAlgorithm(GraphAlgorithm):
                 self.main_window.graph_widget.update()
                 
                 if neighbor not in self.visited:
-                    self.main_window.explanation_widget.append(
-                        f"Найден непосещенный сосед: {neighbor}"
-                    )
+                    message = f"Найден непосещенный сосед: {neighbor}"
+                    self.main_window.explanation_widget.append(message)
                     self.main_window.highlight_pseudocode_line(12)
                     self.stack.append(neighbor)
                     self.path.append((vertex, neighbor))
                     self.main_window.graph_widget.bfs_path = self.path
                 else:
-                    self.main_window.explanation_widget.append(
-                        f"Сосед {neighbor} уже был посещен"
-                    )
+                    message = f"Сосед {neighbor} уже был посещен"
+                    self.main_window.explanation_widget.append(message)
+        else:
+            message = f"Вершина {vertex} уже была посещена"
+            self.main_window.explanation_widget.append(message)
         
         self.main_window.graph_widget.bfs_current_edge = None
         self.main_window.graph_widget.update()
-        return False 
+        return False, message 

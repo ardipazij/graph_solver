@@ -660,9 +660,10 @@ class MainWindow(QMainWindow):
             # Запускаем алгоритм
             self.bfs_algorithm.start(vertex)
             
-            # Устанавливаем начальную скорость
-            self.speed_slider.setValue(2)  # 1x
-            self.current_delay = 1000
+            # Используем текущее значение скорости
+            speed_multipliers = {0: 0.25, 1: 0.5, 2: 1.0, 3: 2.0, 4: 4.0}
+            current_multiplier = speed_multipliers[self.speed_slider.value()]
+            self.current_delay = int(1000 / current_multiplier)
             
             # Сбрасываем состояние паузы
             self.pause_btn.setChecked(False)
@@ -699,9 +700,10 @@ class MainWindow(QMainWindow):
             # Запускаем алгоритм
             self.dfs_algorithm.start(vertex)
             
-            # Устанавливаем начальную скорость
-            self.speed_slider.setValue(2)  # 1x
-            self.current_delay = 1000
+            # Используем текущее значение скорости
+            speed_multipliers = {0: 0.25, 1: 0.5, 2: 1.0, 3: 2.0, 4: 4.0}
+            current_multiplier = speed_multipliers[self.speed_slider.value()]
+            self.current_delay = int(1000 / current_multiplier)
             
             # Сбрасываем состояние паузы
             self.pause_btn.setChecked(False)
@@ -725,12 +727,10 @@ class MainWindow(QMainWindow):
             if hasattr(self, '_fade_timer'):
                 self._fade_timer.stop()
             
-            # Формируем сообщение
+            # Формируем и показываем сообщение для каждого шага
             if message:
-                formatted_message = f"Шаг алгоритма {self.current_algorithm}:\n{message}"
-                
                 # Показываем сообщение
-                self.algorithm_step_label.setText(formatted_message)
+                self.algorithm_step_label.setText(message)
                 self.algorithm_step_label.setVisible(True)
                 self.opacity_effect.setOpacity(1.0)
                 
@@ -746,7 +746,7 @@ class MainWindow(QMainWindow):
             # Если алгоритм завершен, показываем сообщение о завершении
             if is_finished:
                 self.animation_timer.stop()
-                completion_message = f"Алгоритм {self.current_algorithm} завершён!"
+                completion_message = "Обход завершен!"
                 
                 # Показываем сообщение о завершении
                 self.algorithm_step_label.setText(completion_message)
