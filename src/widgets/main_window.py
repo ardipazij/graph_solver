@@ -337,16 +337,48 @@ class MainWindow(QMainWindow):
 
     def load_graph_from_file(self):
         """Загружает граф из файла"""
-        file_name, _ = QFileDialog.getOpenFileName(self, "Выберите файл с графом", "", "Text Files (*.txt)")
-        if file_name:
-            try:
-                graph = load_graph_from_file(file_name)
-                self.graph_widget.set_graph(graph)
-                self.directed_checkbox.setChecked(isinstance(graph, nx.DiGraph))
-                self.weighted_checkbox.setChecked(is_weighted(graph))
-                self.graph_widget.stop_adding()
-            except Exception as e:
-                QMessageBox.warning(self, "Ошибка", f"Не удалось загрузить граф: {str(e)}")
+        try:
+            file_name, _ = QFileDialog.getOpenFileName(
+                self,
+                "Выберите файл с графом",
+                "",
+                "Текстовые файлы (*.txt);;Все файлы (*.*)"
+            )
+            
+            if not file_name:
+                return
+                
+            # Проверяем, что файл существует и не пустой
+            with open(file_name, 'r') as f:
+                content = f.read().strip()
+                if not content:
+                    QMessageBox.warning(self, "Ошибка", "Файл пуст")
+                    return
+            
+            # Загружаем граф
+            graph = load_graph_from_file(file_name)
+            
+            # Обновляем интерфейс
+            self.graph_widget.set_graph(graph)
+            self.directed_checkbox.setChecked(isinstance(graph, nx.DiGraph))
+            self.weighted_checkbox.setChecked(is_weighted(graph))
+            self.graph_widget.stop_adding()
+            
+            # Информируем пользователя об успешной загрузке
+            vertices = len(graph.nodes())
+            edges = len(graph.edges())
+            QMessageBox.information(
+                self,
+                "Успешно",
+                f"Граф загружен:\n- Вершин: {vertices}\n- Рёбер: {edges}"
+            )
+            
+        except FileNotFoundError:
+            QMessageBox.warning(self, "Ошибка", "Файл не найден")
+        except ValueError as e:
+            QMessageBox.warning(self, "Ошибка формата", str(e))
+        except Exception as e:
+            QMessageBox.warning(self, "Ошибка", f"Не удалось загрузить граф:\n{str(e)}")
 
     def save_graph_to_file(self):
         """Сохраняет граф в файл"""
@@ -689,38 +721,48 @@ class MainWindow(QMainWindow):
             else:
                 is_finished, message = step_info, None
                 
+            # Отменяем предыдущий таймер исчезновения, если он был
+            if hasattr(self, '_fade_timer'):
+                self._fade_timer.stop()
+            
+            # Формируем сообщение
             if message:
-                # Форматируем сообщение для лучшего отображения
                 formatted_message = f"Шаг алгоритма {self.current_algorithm}:\n{message}"
                 
-                # Показываем сообщение о текущем шаге
+                # Показываем сообщение
                 self.algorithm_step_label.setText(formatted_message)
-                self.algorithm_step_label.setStyleSheet("""
-                    QLabel {
-                        background-color: rgba(74, 144, 226, 0.95);
-                        color: white;
-                        padding: 15px;
-                        border-radius: 8px;
-                        font-size: 16px;
-                        font-family: 'Arial', sans-serif;
-                        font-weight: bold;
-                        margin: 10px;
-                    }
-                """)
-                
-                # Сначала делаем метку видимой и устанавливаем прозрачность
                 self.algorithm_step_label.setVisible(True)
                 self.opacity_effect.setOpacity(1.0)
                 
                 # Записываем информацию в лог
                 self._log_algorithm_step(message)
                 
-                # Ждем, пока пользователь прочитает сообщение
-                QTimer.singleShot(int(self.current_delay * 1.5), self._fade_out_message)
+                # Создаем новый таймер для исчезновения
+                self._fade_timer = QTimer()
+                self._fade_timer.setSingleShot(True)
+                self._fade_timer.timeout.connect(self._fade_out_message)
+                self._fade_timer.start(int(self.current_delay * 1.5))
             
+            # Если алгоритм завершен, показываем сообщение о завершении
             if is_finished:
                 self.animation_timer.stop()
-                self._show_completion_message()
+                completion_message = f"Алгоритм {self.current_algorithm} завершён!"
+                
+                # Показываем сообщение о завершении
+                self.algorithm_step_label.setText(completion_message)
+                self.algorithm_step_label.setVisible(True)
+                self.opacity_effect.setOpacity(1.0)
+                
+                # Записываем информацию о завершении в лог
+                self._log_algorithm_step("Алгоритм завершён")
+                
+                # Создаем новый таймер для исчезновения
+                if hasattr(self, '_fade_timer'):
+                    self._fade_timer.stop()
+                self._fade_timer = QTimer()
+                self._fade_timer.setSingleShot(True)
+                self._fade_timer.timeout.connect(self._fade_out_message)
+                self._fade_timer.start(int(self.current_delay * 2))
 
     def _fade_out_message(self):
         """Плавно скрывает сообщение о шаге алгоритма"""
@@ -734,23 +776,9 @@ class MainWindow(QMainWindow):
 
     def _show_completion_message(self):
         """Показывает сообщение о завершении алгоритма"""
-        completion_message = f"Алгоритм {self.current_algorithm} завершён!"
-        self.algorithm_step_label.setText(completion_message)
-        self.algorithm_step_label.setStyleSheet("""
-            QLabel {
-                background-color: rgba(40, 167, 69, 0.95);
-                color: white;
-                padding: 15px;
-                border-radius: 8px;
-                font-size: 16px;
-                font-family: 'Arial', sans-serif;
-                font-weight: bold;
-                margin: 10px;
-            }
-        """)
-        self.algorithm_step_label.setVisible(True)
-        self.opacity_effect.setOpacity(1.0)
-        QTimer.singleShot(2000, self._fade_out_message)
+        # Этот метод больше не используется, так как сообщение о завершении
+        # теперь отображается в _algorithm_step
+        pass
 
     def _log_algorithm_step(self, message):
         """Записывает информацию о шаге алгоритма в лог-файл"""
