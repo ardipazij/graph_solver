@@ -104,7 +104,8 @@ class GraphWidget(QWidget):
         end_x = end.x() - 20 * np.cos(angle)
         end_y = end.y() - 20 * np.sin(angle)
         
-        if edge == self.bfs_current_edge:
+        # Проверяем ребро в обоих направлениях
+        if edge == self.bfs_current_edge or (edge[1], edge[0]) == self.bfs_current_edge:
             painter.setPen(QPen(QColor(255, 165, 0), 3))
         elif (edge[0], edge[1]) in self.bfs_path or (edge[1], edge[0]) in self.bfs_path:
             painter.setPen(QPen(QColor(144, 238, 144), 3))

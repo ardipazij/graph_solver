@@ -233,13 +233,13 @@ class DijkstraAlgorithm(GraphAlgorithm):
         if self.current_neighbor is not None and self.comparison_step:
             return self._process_comparison()
 
-        # Сбрасываем подсветку ребра только перед началом обработки нового соседа
-        self.main_window.graph_widget.bfs_current_edge = None
-        self.main_window.graph_widget.update()
-
         # Если есть необработанные соседи текущей вершины
         if self.current_neighbors:
             return self._prepare_next_neighbor()
+
+        # Сбрасываем подсветку ребра перед переходом к новой вершине
+        self.main_window.graph_widget.bfs_current_edge = None
+        self.main_window.graph_widget.update()
 
         # Если все соседи обработаны или это первый шаг
         if not self.unvisited:
@@ -329,7 +329,6 @@ class DijkstraAlgorithm(GraphAlgorithm):
         self.current_neighbor = None
         self.current_distance = None
         
-        # НЕ сбрасываем подсветку ребра здесь
         self.main_window.graph_widget.update()
         
         return False, "\n".join(message)
