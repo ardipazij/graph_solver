@@ -315,31 +315,25 @@ class GraphWidget(QWidget):
         self.edge_start = None
         self.setCursor(Qt.CursorShape.ArrowCursor)
 
-class SpeedController(QThread):
-    """Отдельный поток для управления скоростью анимации"""
-    speed_changed = pyqtSignal(int)  # сигнал для обновления скорости
-
-    def __init__(self, parent=None):
-        super().__init__(parent)
-        self.running = True
-        self.current_speed = 1000  # начальная скорость
-
-    def run(self):
-        while self.running:
-            self.speed_changed.emit(self.current_speed)
-            self.msleep(100)  # проверяем каждые 100мс
-
-    def update_speed(self, new_speed):
-        self.current_speed = new_speed
-
-    def stop(self):
-        self.running = False
-
 class MainWindow(QMainWindow):
     def __init__(self):
         super().__init__()
         self.setWindowTitle("Визуализатор графов")
-        self.setMinimumSize(1000, 600)  # Увеличиваем минимальную ширину
+        self.setMinimumSize(1000, 600)
+        
+        # Инициализация атрибутов для BFS
+        self.bfs_queue = []
+        self.bfs_visited = set()
+        self.bfs_result = []
+        self.bfs_current = None
+        self.bfs_path = []
+        
+        # Инициализация атрибутов для DFS
+        self.dfs_stack = []
+        self.dfs_visited = set()
+        self.dfs_result = []
+        self.dfs_current = None
+        self.dfs_path = []
         
         # Создаем центральный виджет
         central_widget = QWidget()
@@ -364,7 +358,9 @@ class MainWindow(QMainWindow):
         self.algorithms_btn = QPushButton("Алгоритмы обхода")
         self.algorithms_menu = QMenu()
         self.bfs_action = self.algorithms_menu.addAction("BFS")
+        self.dfs_action = self.algorithms_menu.addAction("DFS")  # Добавляем пункт DFS
         self.bfs_action.triggered.connect(self.start_bfs)
+        self.dfs_action.triggered.connect(self.start_dfs)  # Подключаем обработчик
         self.algorithms_btn.setMenu(self.algorithms_menu)
         
         # Делаем кнопки переключаемыми
@@ -436,41 +432,69 @@ class MainWindow(QMainWindow):
             }
         """)
         
-        # Создаем контроллер скорости
-        self.speed_controller = SpeedController(self)
-        self.speed_controller.speed_changed.connect(self.update_animation_speed)
-        self.speed_controller.start()
-        
-        # Создаем ползунок для регулировки скорости
+        # Создаем контроллер скорости с кнопками
         speed_layout = QHBoxLayout()
         speed_label = QLabel("Скорость:")
+        
+        # Создаем слайдер скорости
         self.speed_slider = QSlider(Qt.Orientation.Horizontal)
-        self.speed_slider.setMinimum(100)   # минимальная задержка (быстрее)
-        self.speed_slider.setMaximum(2000)  # максимальная задержка (медленнее)
-        self.speed_slider.setValue(1000)    # начальное значение (1 секунда)
-        self.speed_slider.setFixedWidth(200)  # увеличиваем ширину
+        self.speed_slider.setMinimum(0)  # 0.25x
+        self.speed_slider.setMaximum(4)  # 4x
+        self.speed_slider.setValue(2)     # 1x по умолчанию
+        self.speed_slider.setTickPosition(QSlider.TickPosition.TicksBelow)
+        self.speed_slider.setTickInterval(1)
         self.speed_slider.setStyleSheet("""
             QSlider::groove:horizontal {
                 border: 1px solid #999999;
                 height: 8px;
-                background: #cccccc;
+                background: #f0f0f0;
                 margin: 2px 0;
+                border-radius: 4px;
             }
             QSlider::handle:horizontal {
                 background: #4a90e2;
                 border: 1px solid #5c5c5c;
                 width: 18px;
                 margin: -2px 0;
-                border-radius: 3px;
+                border-radius: 9px;
             }
             QSlider::sub-page:horizontal {
                 background: #4a90e2;
-                border-radius: 3px;
+                border-radius: 4px;
             }
         """)
-        self.speed_slider.valueChanged.connect(self.update_speed)
+        
+        # Создаем метку для отображения текущей скорости
+        self.speed_value_label = QLabel("1x")
+        self.speed_value_label.setMinimumWidth(40)
+        self.speed_value_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        
+        # Кнопка паузы
+        self.pause_btn = QPushButton("⏸")
+        self.pause_btn.setCheckable(True)
+        self.pause_btn.setFixedSize(30, 30)
+        self.pause_btn.setStyleSheet("""
+            QPushButton {
+                background-color: #f0f0f0;
+                border: 1px solid #ccc;
+                border-radius: 15px;
+                font-size: 16px;
+            }
+            QPushButton:checked {
+                background-color: #4a90e2;
+                color: white;
+            }
+        """)
+        self.pause_btn.clicked.connect(self.toggle_pause)
+        
+        # Подключаем обработчик изменения значения слайдера
+        self.speed_slider.valueChanged.connect(self.on_speed_changed)
+        
+        # Добавляем все элементы управления скоростью в layout
         speed_layout.addWidget(speed_label)
+        speed_layout.addWidget(self.pause_btn)
         speed_layout.addWidget(self.speed_slider)
+        speed_layout.addWidget(self.speed_value_label)
         speed_layout.addStretch()
         
         # Создаем таймер для анимации
@@ -671,6 +695,27 @@ class MainWindow(QMainWindow):
                queue.append(neighbor)    // добавляем в очередь
 
 3. Завершение:
+   Возвращаем result''',
+            
+            'DFS': '''Алгоритм DFS (поиск в глубину):
+1. Инициализация:
+   visited = ∅        // множество посещенных вершин
+   stack = [start]    // стек вершин для обработки
+   result = []        // результат обхода
+
+2. Основной цикл:
+   Пока stack не пуст:
+       vertex = stack.pop()     // берем последнюю вершину из стека
+       Если vertex не посещена:
+           result.append(vertex)    // добавляем в результат
+           visited.add(vertex)      // помечаем как посещенную
+
+           // Обработка соседей:
+           Для каждого соседа neighbor вершины vertex:
+               Если neighbor не посещен:
+                   stack.append(neighbor)    // добавляем в стек
+
+3. Завершение:
    Возвращаем result'''
         }
         
@@ -702,14 +747,38 @@ class MainWindow(QMainWindow):
         highlighted_text = '<br>'.join(highlighted_lines)
         self.pseudocode_widget.setHtml(highlighted_text)
 
-    def update_speed(self):
-        """Обновляет скорость в контроллере"""
-        self.speed_controller.update_speed(self.speed_slider.value())
+    def toggle_pause(self):
+        """Переключает состояние паузы"""
+        self.is_paused = self.pause_btn.isChecked()
+        # Обновляем иконку кнопки
+        self.pause_btn.setText("▶" if self.is_paused else "⏸")
+        
+        if self.is_paused:
+            if self.animation_timer.isActive():
+                self.animation_timer.stop()
+        else:
+            if hasattr(self, 'bfs_queue') or hasattr(self, 'dfs_stack'):
+                if ((hasattr(self, 'bfs_queue') and self.bfs_queue) or 
+                    (hasattr(self, 'dfs_stack') and self.dfs_stack)):
+                    self.animation_timer.start()
 
-    def update_animation_speed(self, new_speed):
-        """Обновляет скорость анимации"""
-        if hasattr(self, 'animation_timer') and self.animation_timer.isActive():
-            self.current_delay = new_speed
+    def on_speed_changed(self, value):
+        """Обработчик изменения значения слайдера скорости"""
+        # Преобразуем значение слайдера в множитель скорости
+        speed_multipliers = {
+            0: 0.25,  # Очень медленно
+            1: 0.5,   # Медленно
+            2: 1.0,   # Нормально
+            3: 2.0,   # Быстро
+            4: 4.0    # Очень быстро
+        }
+        
+        multiplier = speed_multipliers[value]
+        self.current_delay = int(1000 / multiplier)  # Базовая задержка 1000мс
+        self.speed_value_label.setText(f"{multiplier}x")
+        
+        # Обновляем таймер, если он активен
+        if self.animation_timer.isActive():
             self.animation_timer.setInterval(self.current_delay)
 
     def start_bfs(self):
@@ -751,15 +820,25 @@ class MainWindow(QMainWindow):
             # Подсвечиваем первую строку псевдокода
             self.highlight_pseudocode_line(0)
             
-            # Инициализируем текущую задержку
-            self.current_delay = self.speed_slider.value()
+            # Устанавливаем начальную скорость
+            self.speed_slider.setValue(2)  # 1x
+            self.current_delay = 1000
             
-            # Запускаем анимацию с текущей скоростью
+            # Сбрасываем состояние паузы
+            self.pause_btn.setChecked(False)
+            self.pause_btn.setText("⏸")  # Устанавливаем иконку паузы
+            self.is_paused = False
+            
+            # Запускаем анимацию
             self.animation_timer.setInterval(self.current_delay)
             self.animation_timer.start()
 
     def next_bfs_step(self):
         """Выполняет следующий шаг BFS"""
+        if self.is_paused:
+            self.animation_timer.stop()
+            return
+            
         if not self.bfs_queue:
             # Алгоритм завершен
             self.animation_timer.stop()
@@ -778,12 +857,7 @@ class MainWindow(QMainWindow):
         
         # Обновляем пояснение
         self.explanation_widget.append(f"\nШаг {len(self.bfs_result)}:")
-        
-        # Подсвечиваем строку извлечения вершины из очереди
-        self.highlight_pseudocode_line(6)  # vertex = queue.pop(0)
         self.explanation_widget.append(f"Извлекаем вершину {current} из очереди")
-        QApplication.processEvents()
-        QThread.msleep(self.current_delay)  # Используем текущую задержку
         
         # Получаем соседей текущей вершины
         if isinstance(self.graph_widget.graph, nx.DiGraph):
@@ -793,10 +867,6 @@ class MainWindow(QMainWindow):
             
         if neighbors:
             self.explanation_widget.append(f"Рассматриваем рёбра из вершины {current}:")
-            # Подсвечиваем строку цикла по соседям
-            self.highlight_pseudocode_line(8)  # Для каждого соседа neighbor вершины vertex:
-            QApplication.processEvents()
-            QThread.msleep(self.current_delay)
             
             # Добавляем непосещенных соседей в очередь
             for neighbor in neighbors:
@@ -805,53 +875,174 @@ class MainWindow(QMainWindow):
                 self.graph_widget.update()
                 
                 if neighbor not in self.bfs_visited:
-                    # Подсвечиваем строку проверки посещенности
-                    self.highlight_pseudocode_line(9)  # Если neighbor не посещен:
-                    QApplication.processEvents()
-                    QThread.msleep(self.current_delay)
-                    
                     self.bfs_visited.add(neighbor)
                     self.bfs_queue.append(neighbor)
                     self.bfs_path.append((current, neighbor))  # добавляем ребро в путь
                     self.graph_widget.bfs_path = self.bfs_path  # обновляем путь в виджете графа
                     self.explanation_widget.append(f"  • Ребро ({current} -> {neighbor}) - вершина {neighbor} добавлена в очередь")
-                    
-                    # Подсвечиваем строку добавления в очередь
-                    self.highlight_pseudocode_line(10)  # queue.append(neighbor)
-                    QApplication.processEvents()
-                    QThread.msleep(self.current_delay)
                 else:
                     self.explanation_widget.append(f"  • Ребро ({current} -> {neighbor}) - вершина {neighbor} уже посещена")
-                    # Подсвечиваем строку проверки посещенности
-                    self.highlight_pseudocode_line(9)  # Если neighbor не посещен:
-                    QApplication.processEvents()
-                    QThread.msleep(self.current_delay)
             
             # Сбрасываем подсветку текущего ребра
             self.graph_widget.bfs_current_edge = None
         else:
             self.explanation_widget.append(f"У вершины {current} нет непосещенных соседей")
-            # Подсвечиваем строку цикла по соседям
-            self.highlight_pseudocode_line(8)  # Для каждого соседа neighbor вершины vertex:
-            QApplication.processEvents()
-            QThread.msleep(self.current_delay)
         
         # Показываем текущее состояние очереди
         if self.bfs_queue:
             self.explanation_widget.append(f"\nТекущая очередь: {' -> '.join(map(str, self.bfs_queue))}")
-            # Подсвечиваем строку проверки очереди
-            self.highlight_pseudocode_line(5)  # Пока queue не пуста:
-            QApplication.processEvents()
-            QThread.msleep(self.current_delay)
         
         # Обновляем отображение
         self.graph_widget.visited_vertices = self.bfs_visited
         self.graph_widget.update()
+        
+        # Прокручиваем пояснения вниз
+        self.explanation_widget.verticalScrollBar().setValue(
+            self.explanation_widget.verticalScrollBar().maximum()
+        )
+
+    def start_dfs(self):
+        """Запускает алгоритм DFS"""
+        if not self.graph_widget.graph.nodes():
+            QMessageBox.warning(self, "Ошибка", "Граф пуст")
+            return
+            
+        # Показываем псевдокод
+        self.show_pseudocode('DFS')
+            
+        # Запрашиваем начальную вершину
+        vertices = sorted(list(self.graph_widget.graph.nodes()))
+        if not vertices:
+            return
+            
+        vertex, ok = QInputDialog.getInt(
+            self, 'Выбор начальной вершины',
+            'Введите номер начальной вершины:',
+            vertices[0],
+            vertices[0],
+            vertices[-1],
+            1
+        )
+        
+        if ok and vertex in vertices:
+            # Инициализируем DFS
+            self.dfs_stack = [vertex]
+            self.dfs_visited = set()
+            self.dfs_result = []
+            self.dfs_current = None
+            self.dfs_path = []
+            self.graph_widget.bfs_path = []
+            self.graph_widget.bfs_current_edge = None
+            self.graph_widget.visited_vertices = set()
+            
+            # Очищаем предыдущие пояснения
+            self.explanation_widget.clear()
+            self.explanation_widget.append("Начинаем обход графа в глубину...")
+            
+            # Подсвечиваем первую строку псевдокода
+            self.highlight_pseudocode_line(0)
+            
+            # Сбрасываем состояние паузы
+            self.pause_btn.setChecked(False)
+            self.pause_btn.setText("⏸")  # Устанавливаем иконку паузы
+            self.is_paused = False
+            
+            # Переключаем обработчик таймера на DFS
+            if self.animation_timer.isActive():
+                self.animation_timer.stop()
+            self.animation_timer.timeout.disconnect()
+            self.animation_timer.timeout.connect(self.next_dfs_step)
+            
+            # Запускаем анимацию
+            self.animation_timer.setInterval(self.current_delay)
+            self.animation_timer.start()
+
+    def next_dfs_step(self):
+        """Выполняет следующий шаг DFS"""
+        if self.is_paused:
+            self.animation_timer.stop()
+            return
+            
+        if not self.dfs_stack:
+            # Алгоритм завершен
+            self.animation_timer.stop()
+            self.animation_timer.timeout.disconnect()
+            self.animation_timer.timeout.connect(self.next_bfs_step)
+            self.highlight_pseudocode_line(12)
+            QMessageBox.information(
+                self, "Результат DFS",
+                f"Порядок обхода вершин: {' -> '.join(map(str, self.dfs_result))}"
+            )
+            return
+            
+        # Берем следующую вершину из стека
+        current = self.dfs_stack.pop()
+        
+        # Проверяем, не посещали ли мы эту вершину
+        if current not in self.dfs_visited:
+            self.dfs_result.append(current)
+            self.dfs_visited.add(current)
+            self.dfs_current = current
+            self.graph_widget.bfs_current = current
+            
+            # Обновляем пояснение
+            self.explanation_widget.append(f"\nШаг {len(self.dfs_result)}:")
+            self.explanation_widget.append(f"Извлекаем вершину {current} из стека и помечаем как посещенную")
+            
+            # Подсвечиваем строку извлечения вершины
+            self.highlight_pseudocode_line(6)
+            
+            # Получаем соседей текущей вершины
+            if isinstance(self.graph_widget.graph, nx.DiGraph):
+                neighbors = list(self.graph_widget.graph.successors(current))
+            else:
+                neighbors = list(self.graph_widget.graph.neighbors(current))
+            
+            # Сортируем соседей в обратном порядке
+            neighbors.sort(reverse=True)
+                
+            if neighbors:
+                self.explanation_widget.append(f"Рассматриваем рёбра из вершины {current}:")
+                self.highlight_pseudocode_line(10)
+                
+                # Добавляем непосещенных соседей в стек
+                for neighbor in neighbors:
+                    # Подсвечиваем текущее ребро
+                    self.graph_widget.bfs_current_edge = (current, neighbor)
+                    self.graph_widget.update()
+                    
+                    if neighbor not in self.dfs_visited:
+                        self.highlight_pseudocode_line(11)
+                        self.dfs_stack.append(neighbor)
+                        self.dfs_path.append((current, neighbor))
+                        self.graph_widget.bfs_path = self.dfs_path
+                        self.explanation_widget.append(f"  • Ребро ({current} -> {neighbor}) - вершина {neighbor} добавлена в стек")
+                    else:
+                        self.explanation_widget.append(f"  • Ребро ({current} -> {neighbor}) - вершина {neighbor} уже посещена")
+                
+                # Сбрасываем подсветку текущего ребра
+                self.graph_widget.bfs_current_edge = None
+            else:
+                self.explanation_widget.append(f"У вершины {current} нет непосещенных соседей")
+            
+            # Показываем текущее состояние стека
+            if self.dfs_stack:
+                self.explanation_widget.append(f"\nТекущий стек: {' -> '.join(map(str, reversed(self.dfs_stack)))}")
+            
+            # Обновляем отображение
+            self.graph_widget.visited_vertices = self.dfs_visited
+            self.graph_widget.update()
+        else:
+            # Если вершина уже была посещена, просто пропускаем её
+            self.explanation_widget.append(f"Пропускаем уже посещенную вершину {current}")
+            
+        # Прокручиваем пояснения вниз
+        self.explanation_widget.verticalScrollBar().setValue(
+            self.explanation_widget.verticalScrollBar().maximum()
+        )
 
     def closeEvent(self, event):
         """Обработчик закрытия окна"""
-        self.speed_controller.stop()
-        self.speed_controller.wait()
         super().closeEvent(event)
 
 if __name__ == '__main__':
