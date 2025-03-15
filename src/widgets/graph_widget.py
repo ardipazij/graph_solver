@@ -33,15 +33,158 @@ class GraphWidget(QWidget):
         self.comparison_text = {}  # текст сравнения для отображения над вершинами
         self.waiting_for_vertex_selection = False  # ожидание выбора вершины
         self.vertex_selection_callback = None  # callback для выбора вершины
+        self.layout_type = 'circular'  # тип размещения по умолчанию
         self.setMinimumSize(600, 400)
         self.setMouseTracking(True)
         self.main_window = main_window
         self.last_mouse_pos = None
+        self.scale_factor = 1.0
+        self.center_offset = QPoint(0, 0)
+
+    def resizeEvent(self, event):
+        """Обработчик изменения размера виджета"""
+        super().resizeEvent(event)
+        if self.graph.nodes():
+            self.adjust_layout()
+
+    def adjust_layout(self):
+        """Корректирует размещение вершин, чтобы граф помещался в окне"""
+        if not self.vertex_positions:
+            return
+
+        # Находим границы текущего размещения
+        min_x = min(pos.x() for pos in self.vertex_positions.values())
+        max_x = max(pos.x() for pos in self.vertex_positions.values())
+        min_y = min(pos.y() for pos in self.vertex_positions.values())
+        max_y = max(pos.y() for pos in self.vertex_positions.values())
+
+        # Вычисляем размеры графа
+        graph_width = max_x - min_x
+        graph_height = max_y - min_y
+
+        # Вычисляем масштаб с учетом отступов
+        padding = 40  # отступ от краев
+        scale_x = (self.width() - 2 * padding) / graph_width if graph_width > 0 else 1
+        scale_y = (self.height() - 2 * padding) / graph_height if graph_height > 0 else 1
+        self.scale_factor = min(scale_x, scale_y)
+
+        # Вычисляем смещение для центрирования
+        center_x = (min_x + max_x) / 2
+        center_y = (min_y + max_y) / 2
+        widget_center_x = self.width() / 2
+        widget_center_y = self.height() / 2
+
+        # Обновляем позиции всех вершин
+        new_positions = {}
+        for vertex, pos in self.vertex_positions.items():
+            # Центрируем и масштабируем координаты
+            new_x = (pos.x() - center_x) * self.scale_factor + widget_center_x
+            new_y = (pos.y() - center_y) * self.scale_factor + widget_center_y
+            new_positions[vertex] = QPoint(int(new_x), int(new_y))
+
+        self.vertex_positions = new_positions
+        self.update()
+
+    def set_layout(self, layout_type):
+        """Устанавливает новый тип размещения вершин"""
+        self.layout_type = layout_type
+        self.apply_layout()
+
+    def apply_layout(self):
+        """Применяет текущий алгоритм размещения вершин"""
+        if not self.graph.nodes():
+            return
+
+        try:
+            # Получаем размещение от networkx с оптимизированными параметрами
+            if self.layout_type == 'circular':
+                pos = nx.circular_layout(self.graph, scale=2.0)
+            elif self.layout_type == 'spring':
+                pos = nx.spring_layout(
+                    self.graph,
+                    k=2.0/np.sqrt(len(self.graph.nodes())),
+                    iterations=100,
+                    scale=2.0,
+                    weight=None
+                )
+            elif self.layout_type == 'spectral':
+                if len(self.graph) < 3:  # Для маленьких графов используем круговое размещение
+                    pos = nx.circular_layout(self.graph, scale=2.0)
+                else:
+                    try:
+                        pos = nx.spectral_layout(self.graph, scale=2.0)
+                    except:
+                        pos = nx.spring_layout(self.graph, scale=2.0)
+            elif self.layout_type == 'shell':
+                if len(self.graph) < 3:
+                    pos = nx.circular_layout(self.graph, scale=2.0)
+                else:
+                    pos = nx.shell_layout(self.graph, scale=2.0)
+            elif self.layout_type == 'kamada_kawai':
+                if len(self.graph) < 3:
+                    pos = nx.circular_layout(self.graph, scale=2.0)
+                else:
+                    try:
+                        dist = dict(nx.shortest_path_length(self.graph))
+                        pos = nx.kamada_kawai_layout(
+                            self.graph,
+                            dist=dist,
+                            scale=2.0,
+                            weight=None
+                        )
+                    except:
+                        pos = nx.spring_layout(
+                            self.graph,
+                            k=2.0/np.sqrt(len(self.graph.nodes())),
+                            iterations=100,
+                            scale=2.0
+                        )
+            else:
+                pos = nx.circular_layout(self.graph, scale=2.0)
+
+            # Преобразуем координаты в QPoint с учетом отступов
+            padding = 60  # увеличиваем отступ от краев
+            width = self.width() - 2 * padding
+            height = self.height() - 2 * padding
+            center = QPoint(self.width() // 2, self.height() // 2)
+
+            # Нормализуем координаты
+            coords = np.array(list(pos.values()))
+            min_x, max_x = coords[:, 0].min(), coords[:, 0].max()
+            min_y, max_y = coords[:, 1].min(), coords[:, 1].max()
+            
+            scale_x = width / (max_x - min_x) if max_x != min_x else 1
+            scale_y = height / (max_y - min_y) if max_y != min_y else 1
+            scale = min(scale_x, scale_y)
+
+            self.vertex_positions = {}
+            for node, (x, y) in pos.items():
+                # Нормализуем и масштабируем координаты
+                norm_x = (x - min_x) / (max_x - min_x) if max_x != min_x else 0.5
+                norm_y = (y - min_y) / (max_y - min_y) if max_y != min_y else 0.5
+                
+                # Преобразуем в координаты экрана
+                screen_x = int(norm_x * width + padding)
+                screen_y = int(norm_y * height + padding)
+                
+                self.vertex_positions[node] = QPoint(screen_x, screen_y)
+
+        except Exception as e:
+            print(f"Ошибка при размещении вершин: {e}")
+            # В случае ошибки используем простое круговое размещение
+            radius = min(width, height) / 3
+            n = len(self.graph.nodes())
+            self.vertex_positions = {}
+            for i, node in enumerate(self.graph.nodes()):
+                angle = 2 * np.pi * i / n
+                x = int(center.x() + radius * np.cos(angle))
+                y = int(center.y() + radius * np.sin(angle))
+                self.vertex_positions[node] = QPoint(x, y)
+
+        self.update()
 
     def set_graph(self, graph):
-        """Устанавливает новый граф и распределяет вершины по кругу"""
-        old_positions = self.vertex_positions.copy()
-        
+        """Устанавливает новый граф и применяет текущий алгоритм размещения"""
         if isinstance(graph, nx.Graph) and self.main_window.directed_checkbox.isChecked():
             self.graph = nx.DiGraph()
             for edge in graph.edges(data=True):
@@ -50,29 +193,8 @@ class GraphWidget(QWidget):
             self.graph = nx.Graph()
             for edge in graph.edges(data=True):
                 self.graph.add_edge(edge[0], edge[1], **edge[2])
-            
-        n = len(self.graph.nodes())
-        if n > 0:
-            if old_positions:
-                for vertex in self.graph.nodes():
-                    if vertex in old_positions:
-                        self.vertex_positions[vertex] = old_positions[vertex]
-                    else:
-                        angle = 2 * np.pi * len(self.vertex_positions) / n
-                        radius = min(self.width(), self.height()) * 0.4
-                        center = QPoint(self.width() // 2, self.height() // 2)
-                        x = center.x() + radius * np.cos(angle)
-                        y = center.y() + radius * np.sin(angle)
-                        self.vertex_positions[vertex] = QPoint(int(x), int(y))
-            else:
-                radius = min(self.width(), self.height()) * 0.4
-                center = QPoint(self.width() // 2, self.height() // 2)
-                for i, node in enumerate(self.graph.nodes()):
-                    angle = 2 * np.pi * i / n
-                    x = center.x() + radius * np.cos(angle)
-                    y = center.y() + radius * np.sin(angle)
-                    self.vertex_positions[node] = QPoint(int(x), int(y))
-        self.update()
+
+        self.apply_layout()
 
     def paintEvent(self, event):
         """Отрисовывает граф"""

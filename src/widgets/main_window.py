@@ -96,6 +96,16 @@ class MainWindow(QMainWindow):
         self.dijkstra_action = self.algorithms_menu.addAction("Поиск кратчайшего пути")
         self.algorithms_btn.setMenu(self.algorithms_menu)
         
+        # Создаем кнопку с выпадающим меню для выбора размещения
+        self.layout_btn = QPushButton("Размещение вершин")
+        self.layout_menu = QMenu()
+        self.circular_action = self.layout_menu.addAction("Круговое")
+        self.spring_action = self.layout_menu.addAction("Силовое")
+        self.spectral_action = self.layout_menu.addAction("Спектральное")
+        self.shell_action = self.layout_menu.addAction("Оболочка")
+        self.kamada_kawai_action = self.layout_menu.addAction("Kamada-Kawai")
+        self.layout_btn.setMenu(self.layout_menu)
+        
         # Создаем кнопку справки
         self.help_btn = QPushButton("Справка")
         self.help_btn.setStyleSheet("""
@@ -129,6 +139,7 @@ class MainWindow(QMainWindow):
         tools_layout.addWidget(self.add_vertex_btn)
         tools_layout.addWidget(self.add_edge_btn)
         tools_layout.addWidget(self.algorithms_btn)
+        tools_layout.addWidget(self.layout_btn)
         tools_layout.addWidget(self.directed_checkbox)
         tools_layout.addWidget(self.weighted_checkbox)
         tools_layout.addStretch()
@@ -337,6 +348,13 @@ class MainWindow(QMainWindow):
         self.speed_slider.valueChanged.connect(self.on_speed_changed)
         self.pause_btn.clicked.connect(self.toggle_pause)
         self.help_btn.clicked.connect(self.show_help)
+        
+        # Подключаем действия для выбора размещения
+        self.circular_action.triggered.connect(lambda: self.graph_widget.set_layout('circular'))
+        self.spring_action.triggered.connect(lambda: self.graph_widget.set_layout('spring'))
+        self.spectral_action.triggered.connect(lambda: self.graph_widget.set_layout('spectral'))
+        self.shell_action.triggered.connect(lambda: self.graph_widget.set_layout('shell'))
+        self.kamada_kawai_action.triggered.connect(lambda: self.graph_widget.set_layout('kamada_kawai'))
 
     def load_graph_from_file(self):
         """Загружает граф из файла"""

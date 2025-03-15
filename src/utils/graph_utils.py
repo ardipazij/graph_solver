@@ -114,47 +114,64 @@ def load_graph_from_file(filename):
     """
     Загружает граф из файла.
     
-    Формат файла:
-    directed/undirected weighted/unweighted
-    vertex1 vertex2 [weight]
-    vertex3 vertex4 [weight]
-    ...
+    Поддерживаемые форматы:
+    1. Список рёбер:
+        directed/undirected weighted/unweighted
+        vertex1 vertex2 [weight]
+        vertex3 vertex4 [weight]
+        ...
     
-    Пример:
-    directed weighted
-    0 1 2.5
-    1 2 1.0
-    2 0 3.0
+    2. Матрица смежности:
+        adjacency directed/undirected weighted/unweighted
+        0 1 0
+        1 0 1
+        0 1 0
+        
+    3. Матрица инцидентности:
+        incidence directed/undirected weighted/unweighted
+        1 0 1
+        1 1 0
+        0 1 1
     """
     with open(filename, 'r') as f:
-        # Читаем первую строку с параметрами графа
+        # Читаем первую строку с параметрами
         params = f.readline().strip().split()
-        if len(params) != 2:
-            raise ValueError("Первая строка должна содержать два параметра: тип графа и наличие весов")
+        if len(params) < 2:
+            raise ValueError("Первая строка должна содержать как минимум два параметра")
             
-        # Определяем тип графа
-        is_directed = params[0].lower() == 'directed'
-        is_weighted = params[1].lower() == 'weighted'
+        # Определяем формат и тип графа
+        format_type = params[0].lower() if len(params) >= 3 else 'edges'
+        is_directed = params[-2].lower() == 'directed'
+        is_weighted = params[-1].lower() == 'weighted'
         
-        # Создаем граф нужного типа
-        graph = nx.DiGraph() if is_directed else nx.Graph()
+        # Читаем оставшиеся строки
+        matrix_text = ''.join(f.readlines())
         
-        # Читаем рёбра
-        for line in f:
-            parts = line.strip().split()
-            if len(parts) < 2:
-                continue
-                
-            v1, v2 = int(parts[0]), int(parts[1])
-            if is_weighted:
-                if len(parts) != 3:
-                    raise ValueError(f"Для взвешенного графа необходимо указать вес ребра: {line}")
-                weight = float(parts[2])
-                graph.add_edge(v1, v2, weight=weight)
-            else:
-                graph.add_edge(v1, v2)
-    
-    return graph
+        if format_type == 'adjacency':
+            # Загружаем из матрицы смежности
+            matrix = parse_matrix(matrix_text)
+            return create_graph_from_adjacency_matrix(matrix, is_directed, is_weighted)
+        elif format_type == 'incidence':
+            # Загружаем из матрицы инцидентности
+            matrix = parse_matrix(matrix_text)
+            return create_graph_from_incidence_matrix(matrix, is_directed, is_weighted)
+        else:
+            # Загружаем из списка рёбер
+            graph = nx.DiGraph() if is_directed else nx.Graph()
+            for line in matrix_text.split('\n'):
+                parts = line.strip().split()
+                if len(parts) < 2:
+                    continue
+                    
+                v1, v2 = int(parts[0]), int(parts[1])
+                if is_weighted:
+                    if len(parts) != 3:
+                        raise ValueError(f"Для взвешенного графа необходимо указать вес ребра: {line}")
+                    weight = float(parts[2])
+                    graph.add_edge(v1, v2, weight=weight)
+                else:
+                    graph.add_edge(v1, v2)
+            return graph
 
 def save_graph_to_file(graph, filename):
     """
