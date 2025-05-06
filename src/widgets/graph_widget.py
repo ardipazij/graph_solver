@@ -91,7 +91,7 @@ class GraphWidget(QWidget):
         self.apply_layout()
 
     def apply_layout(self):
-        """Применяет текущий алгоритм размещения вершин"""
+        """Применяет выбранный алгоритм размещения"""
         if not self.graph.nodes():
             return
 
@@ -119,7 +119,9 @@ class GraphWidget(QWidget):
                 if len(self.graph) < 3:
                     pos = nx.circular_layout(self.graph, scale=2.0)
                 else:
-                    pos = nx.shell_layout(self.graph, scale=2.0)
+                    # Создаем группировку вершин для shell_layout
+                    nlist = self._create_shell_groups()
+                    pos = nx.shell_layout(self.graph, nlist=nlist, scale=2.0)
             elif self.layout_type == 'kamada_kawai':
                 if len(self.graph) < 3:
                     pos = nx.circular_layout(self.graph, scale=2.0)
@@ -183,14 +185,93 @@ class GraphWidget(QWidget):
 
         self.update()
 
+    def _create_shell_groups(self):
+        """Создает группы вершин для размещения по оболочкам на основе структуры графа.
+        Возвращает список групп вершин для использования в shell_layout."""
+        
+        nodes = list(self.graph.nodes())
+        if len(nodes) <= 2:
+            return [nodes]
+            
+        # Вычисляем степени для всех вершин
+        if isinstance(self.graph, nx.DiGraph):
+            # Для ориентированного графа учитываем входящие и исходящие ребра
+            degree_dict = dict(self.graph.degree())
+            in_degree = dict(self.graph.in_degree())
+            out_degree = dict(self.graph.out_degree())
+            # Комбинированная метрика центральности
+            centrality = {n: degree_dict[n] + 0.5 * in_degree[n] + 0.3 * out_degree[n] 
+                        for n in nodes}
+        else:
+            # Для неориентированного графа используем обычную степень
+            centrality = dict(self.graph.degree())
+        
+        # Сортируем вершины по центральности (от высокой к низкой)
+        sorted_nodes = sorted(nodes, key=lambda n: centrality[n], reverse=True)
+        
+        # Определяем количество оболочек адаптивно, избегая хардкодинга
+        num_nodes = len(sorted_nodes)
+        if num_nodes <= 5:
+            # Для маленьких графов используем 1-2 оболочки
+            if num_nodes <= 3:
+                shells = [sorted_nodes]  # Одна оболочка
+            else:
+                # Центральная вершина + остальные
+                shells = [[sorted_nodes[0]], sorted_nodes[1:]]
+        else:
+            # Для графов побольше используем логарифмическую шкалу
+            import math
+            num_shells = min(int(math.log2(num_nodes)) + 1, 5)  # Не более 5 оболочек
+            
+            shells = []
+            # Первая (внутренняя) оболочка - самые центральные вершины
+            central_count = max(1, num_nodes // (2 ** num_shells))
+            shells.append(sorted_nodes[:central_count])
+            
+            remaining = sorted_nodes[central_count:]
+            if not remaining:
+                return shells
+                
+            # Распределяем оставшиеся вершины по оболочкам
+            if num_shells == 2:
+                # Для двух оболочек просто добавляем все оставшиеся
+                shells.append(remaining)
+            else:
+                # Для более чем двух оболочек распределяем с возрастающим размером
+                chunk_size = len(remaining) // (num_shells - 1)
+                if chunk_size == 0:
+                    shells.append(remaining)
+                else:
+                    for i in range(num_shells - 2):
+                        start_idx = i * chunk_size
+                        end_idx = (i + 1) * chunk_size
+                        shells.append(remaining[start_idx:end_idx])
+                    # Последняя оболочка забирает все оставшиеся вершины
+                    shells.append(remaining[(num_shells - 2) * chunk_size:])
+        
+        # Убираем пустые оболочки
+        shells = [shell for shell in shells if shell]
+        return shells
+
     def set_graph(self, graph):
         """Устанавливает новый граф и применяет текущий алгоритм размещения"""
+        # Сохраняем все вершины
+        all_vertices = list(graph.nodes())
+        
         if isinstance(graph, nx.Graph) and self.main_window.directed_checkbox.isChecked():
             self.graph = nx.DiGraph()
+            # Добавляем все вершины
+            for vertex in all_vertices:
+                self.graph.add_node(vertex)
+            # Копируем все рёбра
             for edge in graph.edges(data=True):
                 self.graph.add_edge(edge[0], edge[1], **edge[2])
         else:
             self.graph = nx.Graph()
+            # Добавляем все вершины
+            for vertex in all_vertices:
+                self.graph.add_node(vertex)
+            # Копируем все рёбра
             for edge in graph.edges(data=True):
                 self.graph.add_edge(edge[0], edge[1], **edge[2])
 

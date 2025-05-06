@@ -194,4 +194,69 @@ def save_graph_to_file(graph, filename):
             if 'weight' in edge[2]:
                 f.write(f"{edge[0]} {edge[1]} {edge[2]['weight']}\n")
             else:
-                f.write(f"{edge[0]} {edge[1]}\n") 
+                f.write(f"{edge[0]} {edge[1]}\n")
+
+def generate_random_graph(num_vertices, num_edges, is_directed=False, is_weighted=False, min_weight=1, max_weight=10):
+    """
+    Генерирует случайный граф.
+    
+    Args:
+        num_vertices: количество вершин
+        num_edges: количество рёбер
+        is_directed: флаг, указывающий является ли граф ориентированным
+        is_weighted: флаг, указывающий является ли граф взвешенным
+        min_weight: минимальный вес ребра
+        max_weight: максимальный вес ребра
+        
+    Returns:
+        Сгенерированный граф в формате NetworkX
+    """
+    import random
+    
+    # Создаем граф нужного типа
+    graph = nx.DiGraph() if is_directed else nx.Graph()
+    
+    # Добавляем вершины
+    for i in range(num_vertices):
+        graph.add_node(i)
+    
+    # Генерируем рёбра
+    max_possible_edges = num_vertices * (num_vertices - 1) // (2 if not is_directed else 1)
+    if num_edges > max_possible_edges:
+        raise ValueError(f"Невозможно создать {num_edges} рёбер для графа с {num_vertices} вершинами")
+    
+    edges = set()
+    while len(edges) < num_edges:
+        v1 = random.randint(0, num_vertices - 1)
+        v2 = random.randint(0, num_vertices - 1)
+        
+        # Пропускаем петли и уже существующие рёбра
+        if v1 == v2 or (v1, v2) in edges or (not is_directed and (v2, v1) in edges):
+            continue
+            
+        # Добавляем ребро
+        if is_weighted:
+            weight = random.uniform(min_weight, max_weight)
+            graph.add_edge(v1, v2, weight=weight)
+        else:
+            graph.add_edge(v1, v2)
+            
+        edges.add((v1, v2))
+    
+    return graph
+
+def save_random_graph(filename, num_vertices, num_edges, is_directed=False, is_weighted=False, min_weight=1, max_weight=10):
+    """
+    Генерирует случайный граф и сохраняет его в файл.
+    
+    Args:
+        filename: имя файла для сохранения
+        num_vertices: количество вершин
+        num_edges: количество рёбер
+        is_directed: флаг, указывающий является ли граф ориентированным
+        is_weighted: флаг, указывающий является ли граф взвешенным
+        min_weight: минимальный вес ребра
+        max_weight: максимальный вес ребра
+    """
+    graph = generate_random_graph(num_vertices, num_edges, is_directed, is_weighted, min_weight, max_weight)
+    save_graph_to_file(graph, filename) 

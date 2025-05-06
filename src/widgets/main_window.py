@@ -13,7 +13,8 @@ from widgets.graph_widget import GraphWidget
 from algorithms.graph_algorithms import BFSAlgorithm, DFSAlgorithm, DijkstraAlgorithm
 from utils.graph_utils import (load_graph_from_file, save_graph_to_file,
                            parse_matrix, create_graph_from_adjacency_matrix,
-                           create_graph_from_incidence_matrix, is_weighted)
+                           create_graph_from_incidence_matrix, is_weighted,
+                           generate_random_graph)
 
 class MainWindow(QMainWindow):
     """
@@ -121,6 +122,10 @@ class MainWindow(QMainWindow):
             }
         """)
         
+        # Кнопка для генерации случайного графа
+        self.generate_btn = QPushButton("Сгенерировать граф")
+        self.generate_btn.clicked.connect(self.generate_random_graph)
+        
         # Делаем кнопки переключаемыми
         self.add_vertex_btn.setCheckable(True)
         self.add_edge_btn.setCheckable(True)
@@ -142,6 +147,7 @@ class MainWindow(QMainWindow):
         tools_layout.addWidget(self.layout_btn)
         tools_layout.addWidget(self.directed_checkbox)
         tools_layout.addWidget(self.weighted_checkbox)
+        tools_layout.addWidget(self.generate_btn)
         tools_layout.addStretch()
         tools_layout.addWidget(self.help_btn)
 
@@ -348,6 +354,7 @@ class MainWindow(QMainWindow):
         self.speed_slider.valueChanged.connect(self.on_speed_changed)
         self.pause_btn.clicked.connect(self.toggle_pause)
         self.help_btn.clicked.connect(self.show_help)
+        self.generate_btn.clicked.connect(self.generate_random_graph)
         
         # Подключаем действия для выбора размещения
         self.circular_action.triggered.connect(lambda: self.graph_widget.set_layout('circular'))
@@ -964,4 +971,66 @@ class MainWindow(QMainWindow):
                 min-width: 700px;
             }
         """)
-        msg.exec() 
+        msg.exec()
+
+    def generate_random_graph(self):
+        """Генерирует случайный граф"""
+        try:
+            # Диалог для ввода параметров
+            num_vertices, ok = QInputDialog.getInt(
+                self,
+                "Генерация графа",
+                "Количество вершин:",
+                min=2,
+                max=100
+            )
+            if not ok:
+                return
+                
+            num_edges, ok = QInputDialog.getInt(
+                self,
+                "Генерация графа",
+                "Количество рёбер:",
+                min=1,
+                max=num_vertices * (num_vertices - 1) // 2
+            )
+            if not ok:
+                return
+                
+            is_directed = QMessageBox.question(
+                self,
+                "Генерация графа",
+                "Ориентированный граф?",
+                QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No
+            ) == QMessageBox.StandardButton.Yes
+            
+            is_weighted = QMessageBox.question(
+                self,
+                "Генерация графа",
+                "Взвешенный граф?",
+                QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No
+            ) == QMessageBox.StandardButton.Yes
+            
+            # Генерируем граф
+            graph = generate_random_graph(
+                num_vertices=num_vertices,
+                num_edges=num_edges,
+                is_directed=is_directed,
+                is_weighted=is_weighted
+            )
+            
+            # Обновляем интерфейс
+            self.graph_widget.set_graph(graph)
+            self.directed_checkbox.setChecked(is_directed)
+            self.weighted_checkbox.setChecked(is_weighted)
+            self.graph_widget.stop_adding()
+            
+            # Информируем пользователя
+            QMessageBox.information(
+                self,
+                "Успешно",
+                f"Граф сгенерирован:\n- Вершин: {num_vertices}\n- Рёбер: {num_edges}"
+            )
+            
+        except ValueError as e:
+            QMessageBox.warning(self, "Ошибка", str(e)) 
