@@ -1,36 +1,40 @@
-"""
-Главный файл приложения.
-Содержит точку входа и инициализацию приложения.
-"""
-
 import sys
-import platform
 import os
 from PySide6.QtWidgets import QApplication
-from PySide6.QtCore import Qt
-from widgets.main_window import MainWindow
+from PySide6.QtCore import QCoreApplication
+
+def setup_platform():
+    """Настройка платформо-зависимых параметров Qt"""
+    if sys.platform == 'win32':
+        # Windows
+        os.environ['QT_QPA_PLATFORM'] = 'windows'
+    elif sys.platform == 'darwin':
+        # macOS
+        os.environ['QT_QPA_PLATFORM'] = 'cocoa'
+    else:
+        # Linux и другие Unix-подобные системы
+        os.environ['QT_QPA_PLATFORM'] = 'xcb'
+        # Проверка наличия X11
+        if not os.environ.get('DISPLAY'):
+            os.environ['QT_QPA_PLATFORM'] = 'offscreen'
 
 def main():
-    # Настройка платформо-зависимых параметров
-    if platform.system() == 'Windows':
-        # Включаем поддержку высокого DPI на Windows
-        QApplication.setAttribute(Qt.AA_EnableHighDpiScaling)
-        QApplication.setAttribute(Qt.AA_UseHighDpiPixmaps)
-    elif platform.system() == 'Linux':
-        # Явно указываем использование XCB на Linux
-        os.environ['QT_QPA_PLATFORM'] = 'xcb'
+    # Настройка платформы перед созданием приложения
+    setup_platform()
     
-    # Создаем приложение
+    # Создание приложения
     app = QApplication(sys.argv)
     
-    # Устанавливаем имя приложения
-    app.setApplicationName("Graph Solver")
+    # Установка атрибутов приложения
+    QCoreApplication.setOrganizationName("GraphSolver")
+    QCoreApplication.setApplicationName("Graph Solver")
     
-    # Создаем главное окно
+    # Импорт и создание главного окна
+    from widgets.main_window import MainWindow
     window = MainWindow()
     window.show()
     
-    # Запускаем главный цикл приложения
+    # Запуск приложения
     sys.exit(app.exec())
 
 if __name__ == '__main__':

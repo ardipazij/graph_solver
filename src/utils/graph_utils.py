@@ -5,6 +5,7 @@
 
 import networkx as nx
 import numpy as np
+import random
 
 def is_weighted(graph):
     """Проверяет, является ли граф взвешенным"""
@@ -196,53 +197,46 @@ def save_graph_to_file(graph, filename):
             else:
                 f.write(f"{edge[0]} {edge[1]}\n")
 
-def generate_random_graph(num_vertices, num_edges, is_directed=False, is_weighted=False, min_weight=1, max_weight=10):
+def generate_random_graph(num_vertices, num_edges, is_directed=False, is_weighted=False):
     """
-    Генерирует случайный граф.
+    Генерирует случайный граф с заданными параметрами.
     
     Args:
-        num_vertices: количество вершин
-        num_edges: количество рёбер
-        is_directed: флаг, указывающий является ли граф ориентированным
-        is_weighted: флаг, указывающий является ли граф взвешенным
-        min_weight: минимальный вес ребра
-        max_weight: максимальный вес ребра
+        num_vertices (int): Количество вершин
+        num_edges (int): Количество рёбер
+        is_directed (bool): Флаг ориентированного графа
+        is_weighted (bool): Флаг взвешенного графа
         
     Returns:
-        Сгенерированный граф в формате NetworkX
+        nx.Graph или nx.DiGraph: Сгенерированный граф
     """
-    import random
-    
-    # Создаем граф нужного типа
-    graph = nx.DiGraph() if is_directed else nx.Graph()
-    
+    if is_directed:
+        graph = nx.DiGraph()
+    else:
+        graph = nx.Graph()
+        
     # Добавляем вершины
     for i in range(num_vertices):
         graph.add_node(i)
-    
-    # Генерируем рёбра
-    max_possible_edges = num_vertices * (num_vertices - 1) // (2 if not is_directed else 1)
-    if num_edges > max_possible_edges:
-        raise ValueError(f"Невозможно создать {num_edges} рёбер для графа с {num_vertices} вершинами")
-    
-    edges = set()
-    while len(edges) < num_edges:
-        v1 = random.randint(0, num_vertices - 1)
-        v2 = random.randint(0, num_vertices - 1)
         
-        # Пропускаем петли и уже существующие рёбра
-        if v1 == v2 or (v1, v2) in edges or (not is_directed and (v2, v1) in edges):
-            continue
+    # Генерируем все возможные рёбра
+    possible_edges = []
+    for i in range(num_vertices):
+        for j in range(i + 1, num_vertices):
+            possible_edges.append((i, j))
             
-        # Добавляем ребро
-        if is_weighted:
-            weight = random.uniform(min_weight, max_weight)
-            graph.add_edge(v1, v2, weight=weight)
-        else:
-            graph.add_edge(v1, v2)
-            
-        edges.add((v1, v2))
+    # Перемешиваем рёбра
+    random.shuffle(possible_edges)
     
+    # Добавляем рёбра
+    for i, j in possible_edges[:num_edges]:
+        if is_weighted:
+            # Генерируем случайный целый вес от 1 до 10
+            weight = random.randint(1, 10)
+            graph.add_edge(i, j, weight=weight)
+        else:
+            graph.add_edge(i, j)
+            
     return graph
 
 def save_random_graph(filename, num_vertices, num_edges, is_directed=False, is_weighted=False, min_weight=1, max_weight=10):
@@ -258,5 +252,5 @@ def save_random_graph(filename, num_vertices, num_edges, is_directed=False, is_w
         min_weight: минимальный вес ребра
         max_weight: максимальный вес ребра
     """
-    graph = generate_random_graph(num_vertices, num_edges, is_directed, is_weighted, min_weight, max_weight)
+    graph = generate_random_graph(num_vertices, num_edges, is_directed, is_weighted)
     save_graph_to_file(graph, filename) 

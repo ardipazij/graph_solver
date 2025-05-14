@@ -15,7 +15,6 @@ from utils.graph_utils import (load_graph_from_file, save_graph_to_file,
                            parse_matrix, create_graph_from_adjacency_matrix,
                            create_graph_from_incidence_matrix, is_weighted,
                            generate_random_graph)
-from utils.theme_manager import ThemeManager
 
 class MainWindow(QMainWindow):
     """
@@ -27,15 +26,6 @@ class MainWindow(QMainWindow):
         super().__init__()
         self.setWindowTitle("Визуализатор графов")
         self.setMinimumSize(1000, 600)
-        
-        # Инициализация менеджера тем
-        self.theme_manager = ThemeManager()
-        self.theme_manager.theme_changed.connect(self._update_theme)
-        
-        # Таймер для проверки изменения системной темы
-        self.theme_check_timer = QTimer(self)
-        self.theme_check_timer.timeout.connect(self.theme_manager.update_theme)
-        self.theme_check_timer.start(1000)  # Проверка каждую секунду
         
         # Инициализация компонентов UI
         self.setup_ui()
@@ -49,9 +39,6 @@ class MainWindow(QMainWindow):
         self.is_paused = False
         self.current_delay = 1000  # 1 секунда
         
-        # Применяем начальную тему
-        self._update_theme()
-
     def setup_ui(self):
         """Инициализирует все компоненты пользовательского интерфейса"""
         # Создаем центральный виджет
@@ -85,7 +72,7 @@ class MainWindow(QMainWindow):
         speed_layout = self.create_speed_controller()
         
         # Создаем виджет графа
-        self.graph_widget = GraphWidget(self.theme_manager, self)
+        self.graph_widget = GraphWidget(self)
         
         # Добавляем все элементы в главный layout
         self.setup_main_layout(main_layout, tools_panel, speed_layout)
@@ -994,8 +981,10 @@ class MainWindow(QMainWindow):
                 self,
                 "Генерация графа",
                 "Количество вершин:",
-                min=2,
-                max=100
+                5,  # value
+                2,  # min
+                100,  # max
+                1   # step
             )
             if not ok:
                 return
@@ -1004,8 +993,10 @@ class MainWindow(QMainWindow):
                 self,
                 "Генерация графа",
                 "Количество рёбер:",
-                min=1,
-                max=num_vertices * (num_vertices - 1) // 2
+                5,  # value
+                1,  # min
+                num_vertices * (num_vertices - 1) // 2,  # max
+                1   # step
             )
             if not ok:
                 return
@@ -1046,37 +1037,4 @@ class MainWindow(QMainWindow):
             )
             
         except ValueError as e:
-            QMessageBox.warning(self, "Ошибка", str(e))
-
-    def _update_theme(self):
-        """Обновление темы всех элементов интерфейса"""
-        # Обновляем стили кнопок
-        button_style = self.theme_manager.get_button_style()
-        for button in self.findChildren(QPushButton):
-            button.setStyleSheet(button_style)
-            
-        # Обновляем стили чекбоксов
-        checkbox_style = self.theme_manager.get_checkbox_style()
-        for checkbox in self.findChildren(QCheckBox):
-            checkbox.setStyleSheet(checkbox_style)
-            
-        # Обновляем стили слайдеров
-        slider_style = self.theme_manager.get_slider_style()
-        for slider in self.findChildren(QSlider):
-            slider.setStyleSheet(slider_style)
-            
-        # Обновляем стили меток
-        for label in self.findChildren(QLabel):
-            label.setStyleSheet(f"color: {self.theme_manager.get_color('foreground')};")
-            
-        # Обновляем фон окна
-        self.setStyleSheet(f"""
-            QMainWindow {{
-                background-color: {self.theme_manager.get_color('background')};
-            }}
-        """)
-
-    def closeEvent(self, event):
-        """Обработка закрытия окна"""
-        self.theme_check_timer.stop()
-        super().closeEvent(event) 
+            QMessageBox.warning(self, "Ошибка", str(e)) 
