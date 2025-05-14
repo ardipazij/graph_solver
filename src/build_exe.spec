@@ -15,7 +15,13 @@ a = Analysis(
         'widgets.main_window',
         'widgets.graph_widget',
         'algorithms.graph_algorithms',
-        'utils.graph_utils'
+        'utils.graph_utils',
+        'utils.theme_manager',
+        'PySide6.QtCore',
+        'PySide6.QtGui',
+        'PySide6.QtWidgets',
+        'networkx',
+        'numpy'
     ],
     hookspath=[],
     hooksconfig={},
@@ -48,4 +54,5 @@ exe = EXE(
     target_arch=None,
     codesign_identity=None,
     entitlements_file=None,
+    icon='NONE',
 ) 

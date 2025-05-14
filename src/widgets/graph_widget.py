@@ -3,12 +3,13 @@
 Обеспечивает отрисовку графа и обработку взаимодействия пользователя.
 """
 
-from PyQt6.QtWidgets import QWidget, QMessageBox, QInputDialog
-from PyQt6.QtCore import Qt, QPoint
-from PyQt6.QtGui import QPainter, QPen, QColor
+from PySide6.QtWidgets import QWidget, QMessageBox, QInputDialog
+from PySide6.QtCore import Qt, QPoint, QRect
+from PySide6.QtGui import QPainter, QPen, QColor, QFont
 import networkx as nx
 import numpy as np
 from utils.graph_utils import is_weighted
+from utils.theme_manager import ThemeManager
 
 class GraphWidget(QWidget):
     """
@@ -16,8 +17,10 @@ class GraphWidget(QWidget):
     Поддерживает добавление вершин и рёбер, перемещение вершин и визуализацию алгоритмов.
     """
     
-    def __init__(self, main_window, parent=None):
+    def __init__(self, theme_manager: ThemeManager, main_window, parent=None):
         super().__init__(parent)
+        self.theme_manager = theme_manager
+        self.theme_manager.theme_changed.connect(self.update)
         self.graph = nx.Graph()
         self.vertex_positions = {}
         self.selected_vertex = None
@@ -309,11 +312,11 @@ class GraphWidget(QWidget):
         
         # Проверяем ребро в обоих направлениях
         if edge == self.bfs_current_edge or (edge[1], edge[0]) == self.bfs_current_edge:
-            painter.setPen(QPen(QColor(255, 165, 0), 3))
+            painter.setPen(QPen(QColor(self.theme_manager.get_color('edge')), 3))
         elif (edge[0], edge[1]) in self.bfs_path or (edge[1], edge[0]) in self.bfs_path:
-            painter.setPen(QPen(QColor(144, 238, 144), 3))
+            painter.setPen(QPen(QColor(self.theme_manager.get_color('edge_path')), 3))
         else:
-            painter.setPen(QPen(Qt.GlobalColor.black, 2))
+            painter.setPen(QPen(QColor(self.theme_manager.get_color('edge')), 2))
         
         painter.drawLine(QPoint(int(start_x), int(start_y)), 
                         QPoint(int(end_x), int(end_y)))
@@ -325,6 +328,7 @@ class GraphWidget(QWidget):
             weight = self.graph[edge[0]][edge[1]].get('weight', '')
             if weight:
                 mid_point = QPoint((start.x() + end.x()) // 2, (start.y() + end.y()) // 2)
+                painter.setPen(QColor(self.theme_manager.get_color('edge_text')))
                 painter.drawText(mid_point, str(weight))
 
     def _draw_arrow(self, painter, end_point, angle):
@@ -351,11 +355,11 @@ class GraphWidget(QWidget):
             painter.setPen(QPen(Qt.GlobalColor.black, 2))
         
         if vertex == self.bfs_current:
-            painter.setBrush(QColor(255, 165, 0))  # оранжевый
+            painter.setBrush(QColor(self.theme_manager.get_color('vertex_current')))
         elif vertex in self.visited_vertices:
-            painter.setBrush(QColor(144, 238, 144))  # светло-зеленый
+            painter.setBrush(QColor(self.theme_manager.get_color('vertex_visited')))
         else:
-            painter.setBrush(QColor(200, 200, 200))  # серый
+            painter.setBrush(QColor(self.theme_manager.get_color('vertex')))
             
         painter.drawEllipse(pos, 20, 20)
         painter.drawText(pos.x() - 5, pos.y() + 5, str(vertex))
@@ -364,6 +368,7 @@ class GraphWidget(QWidget):
         if vertex in self.distances:
             distance = self.distances[vertex]
             distance_text = "∞" if distance == float('inf') else str(distance)
+            painter.setPen(QColor(self.theme_manager.get_color('vertex_text')))
             painter.drawText(pos.x() - 15, pos.y() - 25, distance_text)
         
         # Отображаем текст сравнения над расстоянием, если есть

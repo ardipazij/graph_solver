@@ -3,7 +3,7 @@
 """
 
 import networkx as nx
-from PyQt6.QtWidgets import QMessageBox, QInputDialog
+from PySide6.QtWidgets import QMessageBox, QInputDialog
 
 class GraphAlgorithm:
     """Базовый класс для алгоритмов обхода графа"""
