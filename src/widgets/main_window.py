@@ -74,6 +74,24 @@ class MainWindow(QMainWindow):
         # Создаем виджет графа
         self.graph_widget = GraphWidget(self)
         
+        # Создаем метку для отображения текущего шага алгоритма
+        self.algorithm_step_label = QLabel()
+        self.algorithm_step_label.setStyleSheet("""
+            QLabel {
+                background-color: rgba(74, 144, 226, 0.95);
+                color: white;
+                padding: 15px;
+                border-radius: 8px;
+                font-size: 16px;
+                font-family: 'Arial', sans-serif;
+                font-weight: bold;
+                margin: 10px;
+            }
+        """)
+        self.algorithm_step_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.algorithm_step_label.setWordWrap(True)
+        self.algorithm_step_label.setVisible(False)
+        
         # Добавляем все элементы в главный layout
         self.setup_main_layout(main_layout, tools_panel, speed_layout)
         
@@ -164,21 +182,50 @@ class MainWindow(QMainWindow):
         self.apply_matrix_btn.setVisible(False)
 
     def create_pseudocode_widget(self):
-        """Создает виджет для отображения псевдокода"""
+        """Создает виджеты для отображения псевдокода и состояния переменных"""
+        # Создаем контейнер для псевдокода и состояния
+        pseudocode_container = QWidget()
+        pseudocode_layout = QHBoxLayout(pseudocode_container)
+        
+        # Виджет для псевдокода
         self.pseudocode_widget = QTextEdit()
         self.pseudocode_widget.setReadOnly(True)
-        self.pseudocode_widget.setVisible(False)
-        self.pseudocode_widget.setMinimumWidth(300)
+        self.pseudocode_widget.setMinimumWidth(400)
         self.pseudocode_widget.setStyleSheet("""
             QTextEdit {
-                background-color: #f0f0f0;
-                border: 1px solid #ccc;
+                background-color: #f8f9fa;
+                border: 1px solid #dee2e6;
                 border-radius: 5px;
                 padding: 10px;
-                font-family: 'Courier New', monospace;
-                font-size: 12px;
+                font-family: 'Consolas', 'Courier New', monospace;
+                font-size: 14px;
+                line-height: 1.5;
             }
         """)
+        
+        # Виджет для отображения состояния переменных
+        self.variables_widget = QTextEdit()
+        self.variables_widget.setReadOnly(True)
+        self.variables_widget.setMinimumWidth(300)
+        self.variables_widget.setStyleSheet("""
+            QTextEdit {
+                background-color: #f8f9fa;
+                border: 1px solid #dee2e6;
+                border-radius: 5px;
+                padding: 10px;
+                font-family: 'Consolas', 'Courier New', monospace;
+                font-size: 14px;
+                line-height: 1.5;
+            }
+        """)
+        
+        # Добавляем виджеты в layout
+        pseudocode_layout.addWidget(self.pseudocode_widget)
+        pseudocode_layout.addWidget(self.variables_widget)
+        
+        # Сохраняем ссылку на контейнер
+        self.pseudocode_container = pseudocode_container
+        self.pseudocode_container.setVisible(False)
 
     def create_explanation_widget(self):
         """Создает виджет для отображения пояснений"""
@@ -284,24 +331,6 @@ class MainWindow(QMainWindow):
         message_layout = QVBoxLayout(message_container)
         message_layout.setContentsMargins(0, 0, 0, 0)
         
-        # Создаем виджет для отображения текущего шага алгоритма
-        self.algorithm_step_label = QLabel()
-        self.algorithm_step_label.setStyleSheet("""
-            QLabel {
-                background-color: rgba(74, 144, 226, 0.95);
-                color: white;
-                padding: 15px;
-                border-radius: 8px;
-                font-size: 16px;
-                font-family: 'Arial', sans-serif;
-                font-weight: bold;
-                margin: 10px;
-            }
-        """)
-        self.algorithm_step_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        self.algorithm_step_label.setWordWrap(True)
-        self.algorithm_step_label.setVisible(False)
-        
         # Создаем эффект прозрачности и анимацию
         self.opacity_effect = QGraphicsOpacityEffect()
         self.opacity_effect.setOpacity(1.0)
@@ -316,6 +345,13 @@ class MainWindow(QMainWindow):
         graph_layout.addWidget(message_container)
         graph_layout.addWidget(self.graph_widget)
         
+        # Создаем правую панель для псевдокода и состояния
+        right_panel = QWidget()
+        right_layout = QVBoxLayout(right_panel)
+        right_layout.addWidget(self.pseudocode_container)
+        right_layout.addWidget(self.explanation_widget)
+        right_layout.addLayout(speed_layout)
+        
         # Добавляем все элементы в главный layout
         main_layout.addWidget(tools_panel)
         
@@ -324,18 +360,14 @@ class MainWindow(QMainWindow):
         matrix_layout.addWidget(self.apply_matrix_btn)
         main_layout.addLayout(matrix_layout)
         
-        main_layout.addWidget(self.pseudocode_widget)
-        main_layout.addWidget(self.explanation_widget)
-        main_layout.addLayout(speed_layout)
+        main_layout.addWidget(right_panel)
         main_layout.addWidget(graph_container)
         
         # Устанавливаем пропорции layout
         main_layout.setStretch(0, 1)  # tools_panel
         main_layout.setStretch(1, 1)  # matrix_layout
-        main_layout.setStretch(2, 1)  # pseudocode_widget
-        main_layout.setStretch(3, 1)  # explanation_widget
-        main_layout.setStretch(4, 0)  # speed_layout
-        main_layout.setStretch(5, 4)  # graph_container
+        main_layout.setStretch(2, 2)  # right_panel (псевдокод + состояние)
+        main_layout.setStretch(3, 4)  # graph_container
 
     def connect_signals(self):
         """Подключает все сигналы к соответствующим слотам"""
@@ -561,13 +593,14 @@ class MainWindow(QMainWindow):
             self.graph_widget.set_graph(new_graph)
 
     def show_pseudocode(self, algorithm):
-        """Показывает псевдокод выбранного алгоритма"""
+        self.pseudocode_container.setVisible(True)
         pseudocodes = {
             'BFS': '''Алгоритм BFS (поиск в ширину):
 1. Инициализация:
    visited = ∅        // множество посещенных вершин
    queue = [start]    // очередь вершин для обработки
    result = []        // результат обхода
+   parent = {}        // словарь для хранения родительских вершин
 
 2. Основной цикл:
    Пока queue не пуста:
@@ -580,20 +613,27 @@ class MainWindow(QMainWindow):
            Если neighbor не посещен:
                visited.add(neighbor)    // помечаем как посещенного
                queue.append(neighbor)    // добавляем в очередь
+               parent[neighbor] = vertex // запоминаем родителя
 
 3. Завершение:
-   Возвращаем result''',
+   Возвращаем result, parent''',
             
             'DFS': '''Алгоритм DFS (поиск в глубину):
 1. Инициализация:
    visited = ∅        // множество посещенных вершин
    stack = [start]    // стек вершин для обработки
    result = []        // результат обхода
+   parent = {}        // словарь для хранения родительских вершин
+   discovery_time = {} // время обнаружения вершин
+   finish_time = {}   // время завершения обработки вершин
+   time = 0           // текущее время
 
 2. Основной цикл:
    Пока stack не пуст:
        vertex = stack.pop()     // берем последнюю вершину из стека
        Если vertex не посещена:
+           time += 1
+           discovery_time[vertex] = time  // запоминаем время обнаружения
            result.append(vertex)    // добавляем в результат
            visited.add(vertex)      // помечаем как посещенную
 
@@ -601,9 +641,12 @@ class MainWindow(QMainWindow):
            Для каждого соседа neighbor вершины vertex:
                Если neighbor не посещен:
                    stack.append(neighbor)    // добавляем в стек
+                   parent[neighbor] = vertex // запоминаем родителя
+           time += 1
+           finish_time[vertex] = time  // запоминаем время завершения
 
 3. Завершение:
-   Возвращаем result''',
+   Возвращаем result, parent, discovery_time, finish_time''',
             
             'Dijkstra': '''Алгоритм поиска кратчайшего пути (Дейкстра):
 1. Инициализация:
@@ -611,6 +654,7 @@ class MainWindow(QMainWindow):
    previous = {v: null для всех вершин v} // предыдущие вершины
    unvisited = все вершины графа         // непосещенные вершины
    distances[start] = 0                   // расстояние до начальной вершины
+   path = []                             // путь до конечной вершины
 
 2. Основной цикл:
    Пока есть непосещенные вершины:
@@ -625,8 +669,16 @@ class MainWindow(QMainWindow):
                distances[u] = d          // найден более короткий путь
                previous[u] = v           // запоминаем предыдущую вершину
 
-3. Завершение:
-   Возвращаем distances, previous       // кратчайшие пути найдены'''
+3. Восстановление пути:
+   Если previous[end] не null:
+       current = end
+       Пока current не null:
+           path.append(current)
+           current = previous[current]
+       path.reverse()
+
+4. Завершение:
+   Возвращаем distances[end], path'''
         }
         
         if algorithm in pseudocodes:
@@ -647,9 +699,16 @@ class MainWindow(QMainWindow):
         
         for i, line in enumerate(lines):
             if i == line_number:
-                highlighted_lines.append(f'<span style="background-color: #fff3cd;">{line}</span>')
+                # Подсвечиваем текущую строку
+                highlighted_lines.append(f'<span style="background-color: #fff3cd; color: #000; font-weight: bold;">{line}</span>')
             else:
-                highlighted_lines.append(line)
+                # Добавляем отступы для лучшей читаемости
+                if line.strip().startswith('//'):
+                    highlighted_lines.append(f'<span style="color: #666; margin-left: 20px;">{line}</span>')
+                elif line.strip().startswith(('1.', '2.', '3.', '4.')):
+                    highlighted_lines.append(f'<span style="color: #000; font-weight: bold;">{line}</span>')
+                else:
+                    highlighted_lines.append(line)
         
         highlighted_text = '<br>'.join(highlighted_lines)
         self.pseudocode_widget.setHtml(highlighted_text)
@@ -829,9 +888,13 @@ class MainWindow(QMainWindow):
         if not self.is_paused:
             step_info = algorithm.next_step()
             if isinstance(step_info, tuple):
-                is_finished, message = step_info
+                if len(step_info) == 3:
+                    is_finished, message, state = step_info
+                else:
+                    is_finished, message = step_info
+                    state = None
             else:
-                is_finished, message = step_info, None
+                is_finished, message, state = step_info, None, None
                 
             # Отменяем предыдущий таймер исчезновения, если он был
             if hasattr(self, '_fade_timer'):
@@ -843,6 +906,10 @@ class MainWindow(QMainWindow):
                 self.algorithm_step_label.setText(message)
                 self.algorithm_step_label.setVisible(True)
                 self.opacity_effect.setOpacity(1.0)
+                
+                # Обновляем состояние переменных
+                if state:
+                    self.update_variables_state(self.current_algorithm, state)
                 
                 # Записываем информацию в лог
                 self._log_algorithm_step(message)
@@ -1037,4 +1104,48 @@ class MainWindow(QMainWindow):
             )
             
         except ValueError as e:
-            QMessageBox.warning(self, "Ошибка", str(e)) 
+            QMessageBox.warning(self, "Ошибка", str(e))
+
+    def update_variables_state(self, algorithm, state):
+        """Обновляет отображение состояния переменных"""
+        if algorithm == 'BFS':
+            visited = state.get('visited', set())
+            queue = state.get('queue', [])
+            result = state.get('result', [])
+            parent = state.get('parent', {})
+            
+            text = f"""Состояние переменных:
+visited = {sorted(list(visited))}
+queue = {queue}
+result = {result}
+parent = {parent}"""
+            
+        elif algorithm == 'DFS':
+            visited = state.get('visited', set())
+            stack = state.get('stack', [])
+            result = state.get('result', [])
+            parent = state.get('parent', {})
+            discovery_time = state.get('discovery_time', {})
+            finish_time = state.get('finish_time', {})
+            
+            text = f"""Состояние переменных:
+visited = {sorted(list(visited))}
+stack = {stack}
+result = {result}
+parent = {parent}
+discovery_time = {discovery_time}
+finish_time = {finish_time}"""
+            
+        elif algorithm == 'Dijkstra':
+            distances = state.get('distances', {})
+            previous = state.get('previous', {})
+            unvisited = state.get('unvisited', set())
+            path = state.get('path', [])
+            
+            text = f"""Состояние переменных:
+distances = {distances}
+previous = {previous}
+unvisited = {sorted(list(unvisited))}
+path = {path}"""
+            
+        self.variables_widget.setPlainText(text) 

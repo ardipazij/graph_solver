@@ -32,65 +32,80 @@ class BFSAlgorithm(GraphAlgorithm):
     def __init__(self, main_window):
         super().__init__(main_window)
         self.queue = []
+        self.parent = {}
+        self.current_vertex = None
+        self.current_neighbor = None
+        self.step = 0
 
     def start(self, start_vertex):
-        """Начинает обход с указанной вершины"""
+        """Запускает алгоритм BFS"""
         self.reset()
         self.queue = [start_vertex]
         self.visited = {start_vertex}
+        self.parent = {}
+        self.current_vertex = None
+        self.current_neighbor = None
+        self.step = 0
         message = "Начинаем обход графа в ширину..."
         self.main_window.explanation_widget.clear()
         self.main_window.explanation_widget.append(message)
-        self.main_window.highlight_pseudocode_line(0)
+        self.main_window.highlight_pseudocode_line(0)  # Инициализация
         self.main_window.graph_widget.visited_vertices = self.visited
         self.main_window.graph_widget.bfs_current = start_vertex
         self.main_window.graph_widget.update()
         return message
 
     def next_step(self):
-        """Выполняет следующий шаг алгоритма BFS"""
+        """Выполняет следующий шаг алгоритма"""
         if not self.queue:
             message = "Обход завершен!"
             self.main_window.explanation_widget.append(message)
-            self.main_window.highlight_pseudocode_line(16)
+            self.main_window.highlight_pseudocode_line(16)  # Завершение
             self.main_window.graph_widget.bfs_current = None
             self.main_window.graph_widget.bfs_current_edge = None
             self.main_window.graph_widget.update()
-            return True, message
+            return True, message, self._get_state()
 
-        # Извлекаем вершину из очереди
-        vertex = self.queue.pop(0)
-        self.current = vertex
-        self.result.append(vertex)
-        self.main_window.graph_widget.bfs_current = vertex
-        message = f"Обрабатываем вершину {vertex}"
+        self.current_vertex = self.queue.pop(0)
+        self.result.append(self.current_vertex)
+        self.visited.add(self.current_vertex)
+        self.main_window.graph_widget.bfs_current = self.current_vertex
+        message = f"Обрабатываем вершину {self.current_vertex}"
         self.main_window.explanation_widget.append(message)
-        self.main_window.highlight_pseudocode_line(7)
+        self.main_window.highlight_pseudocode_line(7)  # Основной цикл: обработка вершины
         
-        # Получаем соседей в отсортированном порядке
-        neighbors = sorted(list(self.main_window.graph_widget.graph.neighbors(vertex)))
+        # Получаем соседей текущей вершины
+        neighbors = list(self.main_window.graph_widget.graph.neighbors(self.current_vertex))
         
         # Обрабатываем каждого соседа
         for neighbor in neighbors:
-            self.main_window.graph_widget.bfs_current_edge = (vertex, neighbor)
+            self.main_window.graph_widget.bfs_current_edge = (self.current_vertex, neighbor)
             self.main_window.graph_widget.update()
-            
             if neighbor not in self.visited:
                 message = f"Найден непосещенный сосед: {neighbor}"
                 self.main_window.explanation_widget.append(message)
-                self.main_window.highlight_pseudocode_line(12)
+                self.main_window.highlight_pseudocode_line(12)  # Обработка соседа
                 self.visited.add(neighbor)
                 self.queue.append(neighbor)
-                self.path.append((vertex, neighbor))
+                self.parent[neighbor] = self.current_vertex
+                self.path.append((self.current_vertex, neighbor))
                 self.main_window.graph_widget.visited_vertices = self.visited
                 self.main_window.graph_widget.bfs_path = self.path
             else:
                 message = f"Сосед {neighbor} уже был посещен"
                 self.main_window.explanation_widget.append(message)
-        
         self.main_window.graph_widget.bfs_current_edge = None
         self.main_window.graph_widget.update()
-        return False, message
+        return False, message, self._get_state()
+
+    def _get_state(self):
+        """Возвращает текущее состояние алгоритма (только ключевые переменные)"""
+        return {
+            'visited': self.visited,
+            'queue': self.queue,
+            'parent': self.parent,
+            'current_vertex': self.current_vertex
+        }
 
 class DFSAlgorithm(GraphAlgorithm):
     """Реализация алгоритма поиска в глубину (DFS)"""
@@ -98,6 +113,7 @@ class DFSAlgorithm(GraphAlgorithm):
     def __init__(self, main_window):
         super().__init__(main_window)
         self.stack = []
+        self.current = None
 
     def start(self, start_vertex):
         """Начинает обход с указанной вершины"""
@@ -106,7 +122,7 @@ class DFSAlgorithm(GraphAlgorithm):
         message = "Начинаем обход графа в глубину..."
         self.main_window.explanation_widget.clear()
         self.main_window.explanation_widget.append(message)
-        self.main_window.highlight_pseudocode_line(0)
+        self.main_window.highlight_pseudocode_line(0)  # Инициализация
         self.main_window.graph_widget.bfs_current = start_vertex
         self.main_window.graph_widget.update()
         return message
@@ -116,37 +132,33 @@ class DFSAlgorithm(GraphAlgorithm):
         if not self.stack:
             message = "Обход завершен!"
             self.main_window.explanation_widget.append(message)
-            self.main_window.highlight_pseudocode_line(16)
+            self.main_window.highlight_pseudocode_line(22)  # Завершение
             self.main_window.graph_widget.bfs_current = None
             self.main_window.graph_widget.bfs_current_edge = None
             self.main_window.graph_widget.update()
-            return True, message
+            return True, message, self._get_state()
 
         # Извлекаем вершину из стека
         vertex = self.stack.pop()
         self.current = vertex
         self.main_window.graph_widget.bfs_current = vertex
-        
         if vertex not in self.visited:
             self.visited.add(vertex)
             self.result.append(vertex)
             self.main_window.graph_widget.visited_vertices = self.visited
             message = f"Обрабатываем вершину {vertex}"
             self.main_window.explanation_widget.append(message)
-            self.main_window.highlight_pseudocode_line(7)
-            
+            self.main_window.highlight_pseudocode_line(8)  # Основной цикл: обработка вершины
             # Получаем соседей в обратном отсортированном порядке
             neighbors = sorted(list(self.main_window.graph_widget.graph.neighbors(vertex)), reverse=True)
-            
             # Обрабатываем каждого соседа
             for neighbor in neighbors:
                 self.main_window.graph_widget.bfs_current_edge = (vertex, neighbor)
                 self.main_window.graph_widget.update()
-                
                 if neighbor not in self.visited:
                     message = f"Найден непосещенный сосед: {neighbor}"
                     self.main_window.explanation_widget.append(message)
-                    self.main_window.highlight_pseudocode_line(12)
+                    self.main_window.highlight_pseudocode_line(15)  # Обработка соседа
                     self.stack.append(neighbor)
                     self.path.append((vertex, neighbor))
                     self.main_window.graph_widget.bfs_path = self.path
@@ -156,10 +168,18 @@ class DFSAlgorithm(GraphAlgorithm):
         else:
             message = f"Вершина {vertex} уже была посещена"
             self.main_window.explanation_widget.append(message)
-        
         self.main_window.graph_widget.bfs_current_edge = None
         self.main_window.graph_widget.update()
-        return False, message
+        return False, message, self._get_state()
+
+    def _get_state(self):
+        """Возвращает текущее состояние алгоритма (только ключевые переменные)"""
+        return {
+            'visited': self.visited,
+            'stack': self.stack,
+            'parent': getattr(self, 'parent', {}),
+            'current': self.current
+        }
 
 class DijkstraAlgorithm(GraphAlgorithm):
     """Реализация алгоритма поиска кратчайшего пути (Дейкстра)"""
@@ -227,14 +247,17 @@ class DijkstraAlgorithm(GraphAlgorithm):
     def next_step(self):
         """Выполняет следующий шаг алгоритма"""
         if self.waiting_for_end:
-            return False, "Выберите конечную вершину"
+            self.main_window.highlight_pseudocode_line(0)  # Инициализация
+            return False, "Выберите конечную вершину", self._get_state()
 
         # Если есть текущий сосед и мы на шаге сравнения
         if self.current_neighbor is not None and self.comparison_step:
+            self.main_window.highlight_pseudocode_line(15)  # Сравнение расстояний
             return self._process_comparison()
 
         # Если есть необработанные соседи текущей вершины
         if self.current_neighbors:
+            self.main_window.highlight_pseudocode_line(12)  # Обновление расстояний до соседей
             return self._prepare_next_neighbor()
 
         # Сбрасываем подсветку ребра перед переходом к новой вершине
@@ -243,12 +266,14 @@ class DijkstraAlgorithm(GraphAlgorithm):
 
         # Если все соседи обработаны или это первый шаг
         if not self.unvisited:
+            self.main_window.highlight_pseudocode_line(23)  # Восстановление пути
             return self._finish_algorithm()
 
         # Находим следующую вершину для обработки
         min_vertex = self._find_min_distance_vertex()
         if min_vertex is None:
-            return True, "Не удалось найти путь до всех вершин"
+            self.main_window.highlight_pseudocode_line(8)  # Нет пути до оставшихся вершин
+            return True, "Не удалось найти путь до всех вершин", self._get_state()
 
         # Начинаем обработку новой вершины
         self.current_vertex = min_vertex
@@ -262,29 +287,25 @@ class DijkstraAlgorithm(GraphAlgorithm):
         
         message = f"Обрабатываем вершину {min_vertex} (расстояние: {self.distances[min_vertex] if self.distances[min_vertex] != float('inf') else '∞'})"
         self.main_window.explanation_widget.append(message)
-        self.main_window.highlight_pseudocode_line(7)
+        self.main_window.highlight_pseudocode_line(5)  # Помечаем вершину как посещённую
         self.main_window.graph_widget.update()
         
-        return False, message
+        return False, message, self._get_state()
 
     def _prepare_next_neighbor(self):
         """Подготавливает обработку следующего соседа"""
         self.current_neighbor = self.current_neighbors.pop(0)
-        
+        self.main_window.highlight_pseudocode_line(12)  # Обновление расстояний до соседей
         # Устанавливаем текущее ребро для подсветки
         self.main_window.graph_widget.bfs_current_edge = (self.current_vertex, self.current_neighbor)
-        
         edge_data = self.main_window.graph_widget.graph.get_edge_data(self.current_vertex, self.current_neighbor)
         weight = edge_data.get('weight', 1)
         self.current_distance = self.distances[self.current_vertex] + weight
-        
-        # Форматируем сообщение с переносами строк
         message = [
             f"Рассматриваем путь до вершины {self.current_neighbor} через {self.current_vertex}:",
             f"Текущее расстояние до {self.current_neighbor}: {self.distances[self.current_neighbor] if self.distances[self.current_neighbor] != float('inf') else '∞'}",
             f"Новое расстояние через {self.current_vertex}: {self.current_distance}"
         ]
-        
         self.comparison_step = True
         self.main_window.explanation_widget.append("\n".join(message))
         self.main_window.graph_widget.update()
@@ -292,45 +313,30 @@ class DijkstraAlgorithm(GraphAlgorithm):
 
     def _process_comparison(self):
         """Обрабатывает шаг сравнения расстояний"""
-        # Формируем строку сравнения
+        self.main_window.highlight_pseudocode_line(15)  # Сравнение расстояний
         current_dist_str = str(self.current_distance) if self.current_distance != float('inf') else '∞'
         neighbor_dist_str = str(self.distances[self.current_neighbor]) if self.distances[self.current_neighbor] != float('inf') else '∞'
-        
-        # Создаем текст сравнения
         comparison = f"{self.distances[self.current_vertex]}+{self.main_window.graph_widget.graph[self.current_vertex][self.current_neighbor].get('weight', 1)}<{neighbor_dist_str}"
-        
-        # Сохраняем текст сравнения для отображения над вершиной
         self.comparison_text[self.current_neighbor] = comparison
         self.main_window.graph_widget.comparison_text = self.comparison_text
-        
         message = [
             f"Сравниваем: {current_dist_str} < {neighbor_dist_str}",
         ]
-        
         if self.current_distance < self.distances[self.current_neighbor]:
             old_distance = self.distances[self.current_neighbor]
             self.distances[self.current_neighbor] = self.current_distance
             self.previous[self.current_neighbor] = self.current_vertex
             message.append(f"Обновляем расстояние: {old_distance if old_distance != float('inf') else '∞'} → {self.current_distance}")
-            
-            # Обновляем отображение расстояний
             self.main_window.graph_widget.distances = self.distances
         else:
             message.append(f"Оставляем текущее расстояние: {self.distances[self.current_neighbor] if self.distances[self.current_neighbor] != float('inf') else '∞'}")
-        
         self.main_window.explanation_widget.append("\n".join(message))
-        
-        # Очищаем текст сравнения после обработки
         self.comparison_text = {}
         self.main_window.graph_widget.comparison_text = {}
-        
-        # Сбрасываем состояние для следующего соседа
         self.comparison_step = False
         self.current_neighbor = None
         self.current_distance = None
-        
         self.main_window.graph_widget.update()
-        
         return False, "\n".join(message)
 
     def _find_min_distance_vertex(self):
@@ -344,27 +350,23 @@ class DijkstraAlgorithm(GraphAlgorithm):
         return min_vertex
 
     def _finish_algorithm(self):
-        """Завершает работу алгоритма"""
+        self.main_window.highlight_pseudocode_line(23)  # Восстановление пути
         if self.end_vertex is not None:
             self.shortest_path = self._reconstruct_path()
             path_edges = [(self.shortest_path[i], self.shortest_path[i+1]) 
                         for i in range(len(self.shortest_path)-1)]
             self.main_window.graph_widget.bfs_path = path_edges
-            
             distance = self.distances[self.end_vertex]
             if distance == float('inf'):
                 message = f"Путь до вершины {self.end_vertex} не найден"
             else:
                 path_str = " → ".join(map(str, self.shortest_path))
                 message = f"Найден кратчайший путь длиной {distance}:\n{path_str}"
-            
             self.main_window.graph_widget.bfs_current = None
             self.main_window.graph_widget.bfs_current_edge = None
             self.main_window.graph_widget.update()
-            
-            return True, message
-            
-        return True, "Поиск завершен!"
+            return True, message, self._get_state()
+        return True, "Поиск завершен!", self._get_state()
 
     def _reconstruct_path(self):
         """Восстанавливает кратчайший путь от начальной до конечной вершины"""
@@ -373,4 +375,21 @@ class DijkstraAlgorithm(GraphAlgorithm):
         while current is not None:
             path.append(current)
             current = self.previous[current]
-        return list(reversed(path)) 
+        return list(reversed(path))
+
+    def _get_state(self):
+        """Возвращает текущее состояние алгоритма"""
+        return {
+            'distances': self.distances,
+            'previous': self.previous,
+            'unvisited': self.unvisited,
+            'visited': self.visited,
+            'current_vertex': self.current_vertex,
+            'end_vertex': self.end_vertex,
+            'shortest_path': self.shortest_path,
+            'current_neighbors': self.current_neighbors,
+            'current_neighbor': self.current_neighbor,
+            'comparison_step': self.comparison_step,
+            'current_distance': self.current_distance,
+            'path': self.shortest_path
+        } 
