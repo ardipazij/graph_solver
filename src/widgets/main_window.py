@@ -7,6 +7,7 @@ from PySide6.QtWidgets import (QMainWindow, QWidget, QVBoxLayout, QHBoxLayout,
                            QPushButton, QLabel, QFileDialog, QTextEdit, QMessageBox,
                            QCheckBox, QInputDialog, QMenu, QSlider, QGraphicsOpacityEffect)
 from PySide6.QtCore import Qt, QTimer, QDateTime, QPropertyAnimation
+from PySide6.QtGui import QFontMetrics, QFont
 import networkx as nx
 
 from widgets.graph_widget import GraphWidget
@@ -58,6 +59,9 @@ class MainWindow(QMainWindow):
         # Создаем чекбоксы
         self.create_checkboxes()
         
+        # Создаем контроллер скорости
+        self.speed_control_widget = self.create_speed_controller()
+        
         # Добавляем все элементы на панель инструментов
         self.setup_tools_panel(tools_layout)
         
@@ -67,9 +71,6 @@ class MainWindow(QMainWindow):
         
         # Создаем виджет для пояснений
         self.create_explanation_widget()
-        
-        # Создаем контроллер скорости
-        speed_layout = self.create_speed_controller()
         
         # Создаем виджет графа
         self.graph_widget = GraphWidget(self)
@@ -90,10 +91,12 @@ class MainWindow(QMainWindow):
         """)
         self.algorithm_step_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self.algorithm_step_label.setWordWrap(True)
+        self.algorithm_step_label.setMinimumHeight(40)
+        self.algorithm_step_label.setMaximumHeight(120)
         self.algorithm_step_label.setVisible(False)
         
         # Добавляем все элементы в главный layout
-        self.setup_main_layout(main_layout, tools_panel, speed_layout)
+        self.setup_main_layout(main_layout, tools_panel)
         
         # Подключаем сигналы
         self.connect_signals()
@@ -106,6 +109,22 @@ class MainWindow(QMainWindow):
         self.adjacency_matrix_btn = QPushButton("Матрица смежности")
         self.add_vertex_btn = QPushButton("Добавить вершину")
         self.add_edge_btn = QPushButton("Добавить ребро")
+        
+        # Кнопка очистки графа
+        self.clear_graph_btn = QPushButton("Очистить граф")
+        self.clear_graph_btn.clicked.connect(self.clear_graph)
+        
+        # Кнопка "Пояснения" для сворачивания/разворачивания explanation_panel
+        self.explanation_toggle_btn = QPushButton("Скрыть пояснения")
+        self.explanation_toggle_btn.setCheckable(True)
+        self.explanation_toggle_btn.setChecked(False)
+        self.explanation_toggle_btn.clicked.connect(self.toggle_explanation_panel)
+        
+        # Кнопка "Псевдокод" для сворачивания/разворачивания панели работы алгоритма
+        self.pseudocode_toggle_btn = QPushButton("Скрыть псевдокод")
+        self.pseudocode_toggle_btn.setCheckable(True)
+        self.pseudocode_toggle_btn.setChecked(False)
+        self.pseudocode_toggle_btn.clicked.connect(self.toggle_pseudocode_panel)
         
         # Создаем кнопку с выпадающим меню для алгоритмов
         self.algorithms_btn = QPushButton("Алгоритмы")
@@ -142,7 +161,6 @@ class MainWindow(QMainWindow):
         
         # Кнопка для генерации случайного графа
         self.generate_btn = QPushButton("Сгенерировать граф")
-        self.generate_btn.clicked.connect(self.generate_random_graph)
         
         # Делаем кнопки переключаемыми
         self.add_vertex_btn.setCheckable(True)
@@ -161,11 +179,16 @@ class MainWindow(QMainWindow):
         tools_layout.addWidget(self.adjacency_matrix_btn)
         tools_layout.addWidget(self.add_vertex_btn)
         tools_layout.addWidget(self.add_edge_btn)
+        tools_layout.addWidget(self.clear_graph_btn)
         tools_layout.addWidget(self.algorithms_btn)
         tools_layout.addWidget(self.layout_btn)
+        tools_layout.addWidget(self.pseudocode_toggle_btn)
+        tools_layout.addWidget(self.explanation_toggle_btn)
         tools_layout.addWidget(self.directed_checkbox)
         tools_layout.addWidget(self.weighted_checkbox)
         tools_layout.addWidget(self.generate_btn)
+        # --- Контроллер скорости ---
+        tools_layout.addWidget(self.speed_control_widget)
         tools_layout.addStretch()
         tools_layout.addWidget(self.help_btn)
 
@@ -183,10 +206,17 @@ class MainWindow(QMainWindow):
 
     def create_pseudocode_widget(self):
         """Создает виджеты для отображения псевдокода и состояния переменных"""
-        # Создаем контейнер для псевдокода и состояния
-        pseudocode_container = QWidget()
-        pseudocode_layout = QHBoxLayout(pseudocode_container)
-        
+        # --- Сворачиваемая панель ---
+        self.right_collapsible_panel = QWidget()
+        right_panel_layout = QVBoxLayout(self.right_collapsible_panel)
+        right_panel_layout.setContentsMargins(0, 0, 0, 0)
+        right_panel_layout.setSpacing(2)
+        # Кнопку сворачивания убираем отсюда
+        # --- Содержимое панели ---
+        self.right_panel_content = QWidget()
+        right_content_layout = QHBoxLayout(self.right_panel_content)
+        right_content_layout.setContentsMargins(0, 0, 0, 0)
+        right_content_layout.setSpacing(4)
         # Виджет для псевдокода
         self.pseudocode_widget = QTextEdit()
         self.pseudocode_widget.setReadOnly(True)
@@ -202,7 +232,6 @@ class MainWindow(QMainWindow):
                 line-height: 1.5;
             }
         """)
-        
         # Виджет для отображения состояния переменных
         self.variables_widget = QTextEdit()
         self.variables_widget.setReadOnly(True)
@@ -218,17 +247,20 @@ class MainWindow(QMainWindow):
                 line-height: 1.5;
             }
         """)
-        
-        # Добавляем виджеты в layout
-        pseudocode_layout.addWidget(self.pseudocode_widget)
-        pseudocode_layout.addWidget(self.variables_widget)
-        
-        # Сохраняем ссылку на контейнер
-        self.pseudocode_container = pseudocode_container
-        self.pseudocode_container.setVisible(False)
+        right_content_layout.addWidget(self.pseudocode_widget)
+        right_content_layout.addWidget(self.variables_widget)
+        self.right_panel_content.setLayout(right_content_layout)
+        right_panel_layout.addWidget(self.right_panel_content)
+        self.pseudocode_container = self.right_collapsible_panel
+        self.pseudocode_container.setVisible(True)
 
     def create_explanation_widget(self):
-        """Создает виджет для отображения пояснений"""
+        """Создает виджет для отображения пояснений и справки"""
+        self.explanation_panel = QWidget()
+        explanation_layout = QVBoxLayout(self.explanation_panel)
+        explanation_layout.setContentsMargins(0, 0, 0, 0)
+        explanation_layout.setSpacing(2)
+        # Кнопку сворачивания убираем отсюда
         self.explanation_widget = QTextEdit()
         self.explanation_widget.setReadOnly(True)
         self.explanation_widget.setVisible(True)
@@ -244,13 +276,38 @@ class MainWindow(QMainWindow):
                 font-size: 14px;
             }
         """)
+        explanation_layout.addWidget(self.explanation_widget)
+        # --- Плашка справки ---
+        self.help_panel = QWidget()
+        self.help_panel.setStyleSheet("""
+            QWidget {
+                background-color: #e6f0fa;
+                border: 2px solid #4a90e2;
+                border-radius: 8px;
+                padding: 10px;
+            }
+        """)
+        help_layout = QVBoxLayout(self.help_panel)
+        self.help_text = QTextEdit()
+        self.help_text.setReadOnly(True)
+        self.help_text.setStyleSheet("background: transparent; border: none; font-size: 14px;")
+        self.help_text.setTextInteractionFlags(Qt.TextSelectableByMouse)
+        self.help_panel.setVisible(False)
+        self.help_toggle_btn = QPushButton("Свернуть")
+        self.help_toggle_btn.setStyleSheet("padding: 2px 8px; font-size: 12px;")
+        self.help_toggle_btn.clicked.connect(self.toggle_help_panel)
+        help_layout.addWidget(self.help_text)
+        help_layout.addWidget(self.help_toggle_btn, alignment=Qt.AlignmentFlag.AlignRight)
 
     def create_speed_controller(self):
-        """Создает контроллер скорости"""
-        speed_layout = QHBoxLayout()
+        """Создает контроллер скорости (вертикально для левой панели)"""
+        speed_control_widget = QWidget()
+        speed_vlayout = QVBoxLayout(speed_control_widget)
+        speed_vlayout.setContentsMargins(0, 10, 0, 10)
+        speed_vlayout.setSpacing(6)
         speed_label = QLabel("Скорость:")
-        
-        # Создаем слайдер скорости
+        speed_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        # Слайдер скорости
         self.speed_slider = QSlider(Qt.Orientation.Horizontal)
         self.speed_slider.setMinimum(0)  # 0.25x
         self.speed_slider.setMaximum(4)  # 4x
@@ -277,12 +334,10 @@ class MainWindow(QMainWindow):
                 border-radius: 4px;
             }
         """)
-        
-        # Создаем метку для отображения текущей скорости
+        # Метка скорости
         self.speed_value_label = QLabel("1x")
         self.speed_value_label.setMinimumWidth(40)
         self.speed_value_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        
         # Кнопка паузы
         self.pause_btn = QPushButton("⏸")
         self.pause_btn.setCheckable(True)
@@ -299,17 +354,14 @@ class MainWindow(QMainWindow):
                 color: white;
             }
         """)
-        
-        # Добавляем все элементы управления скоростью в layout
-        speed_layout.addWidget(speed_label)
-        speed_layout.addWidget(self.pause_btn)
-        speed_layout.addWidget(self.speed_slider)
-        speed_layout.addWidget(self.speed_value_label)
-        speed_layout.addStretch()
-        
-        return speed_layout
+        # Добавляем элементы вертикально
+        speed_vlayout.addWidget(speed_label)
+        speed_vlayout.addWidget(self.speed_slider)
+        speed_vlayout.addWidget(self.speed_value_label)
+        speed_vlayout.addWidget(self.pause_btn, alignment=Qt.AlignmentFlag.AlignCenter)
+        return speed_control_widget
 
-    def setup_main_layout(self, main_layout, tools_panel, speed_layout):
+    def setup_main_layout(self, main_layout, tools_panel):
         """Настраивает главный layout окна"""
         # Создаем контейнер для графа с рамкой
         graph_container = QWidget()
@@ -324,12 +376,11 @@ class MainWindow(QMainWindow):
         graph_layout.setContentsMargins(10, 10, 10, 10)
         graph_layout.setSpacing(0)  # Убираем пространство между виджетами
         
-        # Создаем контейнер для сообщений алгоритма с фиксированной высотой
+        # Создаем контейнер для сообщений алгоритма
         message_container = QWidget()
-        message_container.setFixedHeight(80)  # Фиксируем высоту контейнера
         message_container.setStyleSheet("background: transparent;")  # Делаем фон прозрачным
+        message_container.setMaximumHeight(140)
         message_layout = QVBoxLayout(message_container)
-        message_layout.setContentsMargins(0, 0, 0, 0)
         
         # Создаем эффект прозрачности и анимацию
         self.opacity_effect = QGraphicsOpacityEffect()
@@ -349,8 +400,8 @@ class MainWindow(QMainWindow):
         right_panel = QWidget()
         right_layout = QVBoxLayout(right_panel)
         right_layout.addWidget(self.pseudocode_container)
-        right_layout.addWidget(self.explanation_widget)
-        right_layout.addLayout(speed_layout)
+        right_layout.addWidget(self.explanation_panel)
+        right_layout.addWidget(self.help_panel)
         
         # Добавляем все элементы в главный layout
         main_layout.addWidget(tools_panel)
@@ -387,6 +438,7 @@ class MainWindow(QMainWindow):
         self.pause_btn.clicked.connect(self.toggle_pause)
         self.help_btn.clicked.connect(self.show_help)
         self.generate_btn.clicked.connect(self.generate_random_graph)
+        self.clear_graph_btn.clicked.connect(self.clear_graph)
         
         # Подключаем действия для выбора размещения
         self.circular_action.triggered.connect(lambda: self.graph_widget.set_layout('circular'))
@@ -398,6 +450,9 @@ class MainWindow(QMainWindow):
     def load_graph_from_file(self):
         """Загружает граф из файла"""
         try:
+            self.graph_widget.reset_visual_state()
+            self.variables_widget.clear()
+            self.pseudocode_widget.clear()
             file_name, _ = QFileDialog.getOpenFileName(
                 self,
                 "Выберите файл с графом",
@@ -668,6 +723,8 @@ class MainWindow(QMainWindow):
            Если d < distances[u]:
                distances[u] = d          // найден более короткий путь
                previous[u] = v           // запоминаем предыдущую вершину
+           Иначе:
+               # оставляем текущее расстояние
 
 3. Восстановление пути:
    Если previous[end] не null:
@@ -693,24 +750,18 @@ class MainWindow(QMainWindow):
         """Подсвечивает указанную строку в псевдокоде"""
         if not hasattr(self, 'current_pseudocode'):
             return
-            
+        
         lines = self.current_pseudocode.split('\n')
         highlighted_lines = []
         
         for i, line in enumerate(lines):
             if i == line_number:
-                # Подсвечиваем текущую строку
-                highlighted_lines.append(f'<span style="background-color: #fff3cd; color: #000; font-weight: bold;">{line}</span>')
+                # Подсвечиваем только одну строку
+                highlighted_lines.append(f'<div style="background-color: #fff3cd; color: #000; font-weight: bold;">{line}</div>')
             else:
-                # Добавляем отступы для лучшей читаемости
-                if line.strip().startswith('//'):
-                    highlighted_lines.append(f'<span style="color: #666; margin-left: 20px;">{line}</span>')
-                elif line.strip().startswith(('1.', '2.', '3.', '4.')):
-                    highlighted_lines.append(f'<span style="color: #000; font-weight: bold;">{line}</span>')
-                else:
-                    highlighted_lines.append(line)
-        
-        highlighted_text = '<br>'.join(highlighted_lines)
+                # Остальные строки — обычные
+                highlighted_lines.append(f'<div>{line}</div>')
+        highlighted_text = ''.join(highlighted_lines)
         self.pseudocode_widget.setHtml(highlighted_text)
 
     def toggle_pause(self):
@@ -747,6 +798,9 @@ class MainWindow(QMainWindow):
 
     def start_bfs(self):
         """Запускает алгоритм BFS"""
+        self.graph_widget.reset_visual_state()
+        self.variables_widget.clear()
+        self.pseudocode_widget.clear()
         if not self.graph_widget.graph.nodes():
             QMessageBox.warning(self, "Ошибка", "Граф пуст")
             return
@@ -787,6 +841,9 @@ class MainWindow(QMainWindow):
 
     def start_dfs(self):
         """Запускает алгоритм DFS"""
+        self.graph_widget.reset_visual_state()
+        self.variables_widget.clear()
+        self.pseudocode_widget.clear()
         if not self.graph_widget.graph.nodes():
             QMessageBox.warning(self, "Ошибка", "Граф пуст")
             return
@@ -827,6 +884,9 @@ class MainWindow(QMainWindow):
 
     def start_dijkstra(self):
         """Запускает алгоритм поиска кратчайшего пути"""
+        self.graph_widget.reset_visual_state()
+        self.variables_widget.clear()
+        self.pseudocode_widget.clear()
         if not self.graph_widget.graph.nodes():
             QMessageBox.warning(self, "Ошибка", "Граф пуст")
             return
@@ -903,7 +963,7 @@ class MainWindow(QMainWindow):
             # Формируем и показываем сообщение для каждого шага
             if message:
                 # Показываем сообщение
-                self.algorithm_step_label.setText(message)
+                self.set_algorithm_step_text(message)
                 self.algorithm_step_label.setVisible(True)
                 self.opacity_effect.setOpacity(1.0)
                 
@@ -926,7 +986,7 @@ class MainWindow(QMainWindow):
                 completion_message = "Обход завершен!"
                 
                 # Показываем сообщение о завершении
-                self.algorithm_step_label.setText(completion_message)
+                self.set_algorithm_step_text(completion_message)
                 self.algorithm_step_label.setVisible(True)
                 self.opacity_effect.setOpacity(1.0)
                 
@@ -968,7 +1028,7 @@ class MainWindow(QMainWindow):
             print(f"Ошибка при записи в лог: {e}")
 
     def show_help(self):
-        """Показывает справочную информацию"""
+        """Показывает справочную информацию в help_panel"""
         help_text = """
 <h2>Справка по работе с визуализатором графов</h2>
 
@@ -1027,22 +1087,20 @@ class MainWindow(QMainWindow):
     </li>
 </ul>
 """
-        msg = QMessageBox(self)
-        msg.setWindowTitle("Справка")
-        msg.setText(help_text)
-        msg.setStyleSheet("""
-            QMessageBox {
-                background-color: white;
-            }
-            QMessageBox QLabel {
-                min-width: 700px;
-            }
-        """)
-        msg.exec()
+        self.help_text.setHtml(help_text)
+        self.help_panel.setVisible(True)
+
+    def toggle_help_panel(self):
+        """Скрывает или показывает плашку справки"""
+        is_visible = self.help_panel.isVisible()
+        self.help_panel.setVisible(not is_visible)
 
     def generate_random_graph(self):
         """Генерирует случайный граф"""
         try:
+            self.graph_widget.reset_visual_state()
+            self.variables_widget.clear()
+            self.pseudocode_widget.clear()
             # Диалог для ввода параметров
             num_vertices, ok = QInputDialog.getInt(
                 self,
@@ -1103,6 +1161,9 @@ class MainWindow(QMainWindow):
                 f"Граф сгенерирован:\n- Вершин: {num_vertices}\n- Рёбер: {num_edges}"
             )
             
+            # Сбрасываем состояние кнопки генерации
+            self.generate_btn.setChecked(False)
+            
         except ValueError as e:
             QMessageBox.warning(self, "Ошибка", str(e))
 
@@ -1149,3 +1210,50 @@ unvisited = {sorted(list(unvisited))}
 path = {path}"""
             
         self.variables_widget.setPlainText(text) 
+
+    def set_algorithm_step_text(self, text):
+        label = self.algorithm_step_label
+        max_width = label.width() - 20  # небольшой отступ
+        max_height = label.height() - 10  # небольшой отступ по высоте
+        font = label.font()
+        font_size = 16  # начальный размер
+        font.setPointSize(font_size)
+        label.setFont(font)
+        metrics = QFontMetrics(font)
+        # Учитываем и ширину, и высоту
+        while (metrics.horizontalAdvance(text) > max_width or
+               metrics.boundingRect(0, 0, max_width, 1000, Qt.TextWordWrap, text).height() > max_height) and font_size > 8:
+            font_size -= 1
+            font.setPointSize(font_size)
+            label.setFont(font)
+            metrics = QFontMetrics(font)
+        label.setText(text) 
+
+    def clear_graph(self):
+        """Очищает граф и сбрасывает все визуальные состояния"""
+        self.graph_widget.graph.clear()
+        self.graph_widget.vertex_positions.clear()
+        self.graph_widget.reset_visual_state()
+        self.variables_widget.clear()
+        self.pseudocode_widget.clear()
+        self.graph_widget.update() 
+
+    def toggle_pseudocode_panel(self):
+        """Скрывает или показывает панель работы алгоритма (псевдокод и переменные)"""
+        is_collapsed = self.pseudocode_toggle_btn.isChecked()
+        if is_collapsed:
+            self.pseudocode_container.setVisible(False)
+            self.pseudocode_toggle_btn.setText("Псевдокод (скрыт)")
+        else:
+            self.pseudocode_container.setVisible(True)
+            self.pseudocode_toggle_btn.setText("Скрыть псевдокод")
+
+    def toggle_explanation_panel(self):
+        """Скрывает или показывает explanation_panel (пояснения)"""
+        is_collapsed = self.explanation_toggle_btn.isChecked()
+        if is_collapsed:
+            self.explanation_panel.setVisible(False)
+            self.explanation_toggle_btn.setText("Пояснения (скрыты)")
+        else:
+            self.explanation_panel.setVisible(True)
+            self.explanation_toggle_btn.setText("Скрыть пояснения") 

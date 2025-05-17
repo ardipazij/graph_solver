@@ -531,4 +531,14 @@ class GraphWidget(QWidget):
         self.adding_edge = False
         self.selected_vertex = None
         self.edge_start = None
-        self.setCursor(Qt.CursorShape.ArrowCursor) 
+        self.setCursor(Qt.CursorShape.ArrowCursor)
+
+    def reset_visual_state(self):
+        """Сбрасывает все визуальные состояния графа (цвета, выделения, расстояния, сравнения)"""
+        self.visited_vertices.clear()
+        self.bfs_current = None
+        self.bfs_path.clear()
+        self.bfs_current_edge = None
+        self.distances = {}
+        self.comparison_text = {}
+        self.update() 

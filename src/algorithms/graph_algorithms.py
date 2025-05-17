@@ -252,12 +252,12 @@ class DijkstraAlgorithm(GraphAlgorithm):
 
         # Если есть текущий сосед и мы на шаге сравнения
         if self.current_neighbor is not None and self.comparison_step:
-            self.main_window.highlight_pseudocode_line(15)  # Сравнение расстояний
+            self.main_window.highlight_pseudocode_line(17)  # Сравнение расстояний (было 15)
             return self._process_comparison()
 
         # Если есть необработанные соседи текущей вершины
         if self.current_neighbors:
-            self.main_window.highlight_pseudocode_line(12)  # Обновление расстояний до соседей
+            self.main_window.highlight_pseudocode_line(15)  # Обновление расстояний до соседей (было 12)
             return self._prepare_next_neighbor()
 
         # Сбрасываем подсветку ребра перед переходом к новой вершине
@@ -266,13 +266,13 @@ class DijkstraAlgorithm(GraphAlgorithm):
 
         # Если все соседи обработаны или это первый шаг
         if not self.unvisited:
-            self.main_window.highlight_pseudocode_line(23)  # Восстановление пути
+            self.main_window.highlight_pseudocode_line(21)  # Восстановление пути (было 23)
             return self._finish_algorithm()
 
         # Находим следующую вершину для обработки
         min_vertex = self._find_min_distance_vertex()
         if min_vertex is None:
-            self.main_window.highlight_pseudocode_line(8)  # Нет пути до оставшихся вершин
+            self.main_window.highlight_pseudocode_line(11)  # Нет пути до оставшихся вершин (было 8)
             return True, "Не удалось найти путь до всех вершин", self._get_state()
 
         # Начинаем обработку новой вершины
@@ -287,7 +287,7 @@ class DijkstraAlgorithm(GraphAlgorithm):
         
         message = f"Обрабатываем вершину {min_vertex} (расстояние: {self.distances[min_vertex] if self.distances[min_vertex] != float('inf') else '∞'})"
         self.main_window.explanation_widget.append(message)
-        self.main_window.highlight_pseudocode_line(5)  # Помечаем вершину как посещённую
+        self.main_window.highlight_pseudocode_line(12)  # Помечаем вершину как посещённую (было 5)
         self.main_window.graph_widget.update()
         
         return False, message, self._get_state()
@@ -295,7 +295,7 @@ class DijkstraAlgorithm(GraphAlgorithm):
     def _prepare_next_neighbor(self):
         """Подготавливает обработку следующего соседа"""
         self.current_neighbor = self.current_neighbors.pop(0)
-        self.main_window.highlight_pseudocode_line(12)  # Обновление расстояний до соседей
+        self.main_window.highlight_pseudocode_line(15)  # Обновление расстояний до соседей (было 12)
         # Устанавливаем текущее ребро для подсветки
         self.main_window.graph_widget.bfs_current_edge = (self.current_vertex, self.current_neighbor)
         edge_data = self.main_window.graph_widget.graph.get_edge_data(self.current_vertex, self.current_neighbor)
@@ -313,7 +313,8 @@ class DijkstraAlgorithm(GraphAlgorithm):
 
     def _process_comparison(self):
         """Обрабатывает шаг сравнения расстояний"""
-        self.main_window.highlight_pseudocode_line(15)  # Сравнение расстояний
+        # Подсвечиваем строку сравнения
+        self.main_window.highlight_pseudocode_line(17)
         current_dist_str = str(self.current_distance) if self.current_distance != float('inf') else '∞'
         neighbor_dist_str = str(self.distances[self.current_neighbor]) if self.distances[self.current_neighbor] != float('inf') else '∞'
         comparison = f"{self.distances[self.current_vertex]}+{self.main_window.graph_widget.graph[self.current_vertex][self.current_neighbor].get('weight', 1)}<{neighbor_dist_str}"
@@ -328,8 +329,12 @@ class DijkstraAlgorithm(GraphAlgorithm):
             self.previous[self.current_neighbor] = self.current_vertex
             message.append(f"Обновляем расстояние: {old_distance if old_distance != float('inf') else '∞'} → {self.current_distance}")
             self.main_window.graph_widget.distances = self.distances
+            # Подсвечиваем строку обновления
+            self.main_window.highlight_pseudocode_line(18)
         else:
             message.append(f"Оставляем текущее расстояние: {self.distances[self.current_neighbor] if self.distances[self.current_neighbor] != float('inf') else '∞'}")
+            # Подсвечиваем строку 'иначе'
+            self.main_window.highlight_pseudocode_line(20)
         self.main_window.explanation_widget.append("\n".join(message))
         self.comparison_text = {}
         self.main_window.graph_widget.comparison_text = {}
@@ -350,7 +355,7 @@ class DijkstraAlgorithm(GraphAlgorithm):
         return min_vertex
 
     def _finish_algorithm(self):
-        self.main_window.highlight_pseudocode_line(23)  # Восстановление пути
+        self.main_window.highlight_pseudocode_line(22)  # Восстановление пути: "Если previous[end] не null:"
         if self.end_vertex is not None:
             self.shortest_path = self._reconstruct_path()
             path_edges = [(self.shortest_path[i], self.shortest_path[i+1]) 
