@@ -40,6 +40,9 @@ class GraphWidget(QWidget):
         self.last_mouse_pos = None
         self.scale_factor = 1.0
         self.center_offset = QPoint(0, 0)
+        # Для выделения начальной и конечной вершины кратчайшего пути
+        self.dijkstra_start_vertex = None
+        self.dijkstra_end_vertex = None
 
     def resizeEvent(self, event):
         """Обработчик изменения размера виджета"""
@@ -276,55 +279,63 @@ class GraphWidget(QWidget):
                 self.graph.add_edge(edge[0], edge[1], **edge[2])
 
         self.apply_layout()
+        # Сброс выделения начальной/конечной вершины
+        self.dijkstra_start_vertex = None
+        self.dijkstra_end_vertex = None
+        self.update()
 
     def paintEvent(self, event):
         """Отрисовывает граф"""
+        from PySide6.QtWidgets import QApplication
+        palette = QApplication.palette()
+        bg_color = palette.window().color()
+        self.setAutoFillBackground(True)
+        p = self.palette()
+        p.setColor(self.backgroundRole(), bg_color)
+        self.setPalette(p)
         painter = QPainter(self)
         painter.setRenderHint(QPainter.RenderHint.Antialiasing)
-        
+        self._palette = palette  # сохраняем для использования в других методах
         # Рисуем рёбра
         for edge in self.graph.edges():
             self._draw_edge(painter, edge)
-            
         # Рисуем вершины
         for vertex in self.graph.nodes():
             self._draw_vertex(painter, vertex)
-            
         # Рисуем временную линию при добавлении ребра
         if self.adding_edge and self.edge_start is not None and self.last_mouse_pos:
-            painter.setPen(QPen(Qt.GlobalColor.blue, 2, Qt.PenStyle.DashLine))
+            painter.setPen(QPen(palette.highlight().color(), 2, Qt.PenStyle.DashLine))
             start_pos = self.vertex_positions[self.edge_start]
             painter.drawLine(start_pos, self.last_mouse_pos)
 
     def _draw_edge(self, painter, edge):
         """Отрисовывает ребро графа"""
+        palette = getattr(self, '_palette', None)
+        if palette is None:
+            from PySide6.QtWidgets import QApplication
+            palette = QApplication.palette()
         start = self.vertex_positions[edge[0]]
         end = self.vertex_positions[edge[1]]
-        
         angle = np.arctan2(end.y() - start.y(), end.x() - start.x())
         start_x = start.x() + 20 * np.cos(angle)
         start_y = start.y() + 20 * np.sin(angle)
         end_x = end.x() - 20 * np.cos(angle)
         end_y = end.y() - 20 * np.sin(angle)
-        
-        # Проверяем ребро в обоих направлениях
-        if edge == self.bfs_current_edge or (edge[1], edge[0]) == self.bfs_current_edge:
-            painter.setPen(QPen(QColor(255, 165, 0), 3))
-        elif (edge[0], edge[1]) in self.bfs_path or (edge[1], edge[0]) in self.bfs_path:
-            painter.setPen(QPen(QColor(144, 238, 144), 3))
+        # Путь всегда зелёный
+        if (edge[0], edge[1]) in self.bfs_path or (edge[1], edge[0]) in self.bfs_path:
+            painter.setPen(QPen(QColor(0, 180, 0), 3))
+        elif edge == self.bfs_current_edge or (edge[1], edge[0]) == self.bfs_current_edge:
+            painter.setPen(QPen(palette.highlight().color(), 3))
         else:
-            painter.setPen(QPen(Qt.GlobalColor.black, 2))
-        
-        painter.drawLine(QPoint(int(start_x), int(start_y)), 
-                        QPoint(int(end_x), int(end_y)))
-        
+            painter.setPen(QPen(palette.windowText().color(), 2))
+        painter.drawLine(QPoint(int(start_x), int(start_y)), QPoint(int(end_x), int(end_y)))
         if self.main_window.directed_checkbox.isChecked():
             self._draw_arrow(painter, QPoint(int(end_x), int(end_y)), angle)
-            
         if is_weighted(self.graph):
             weight = self.graph[edge[0]][edge[1]].get('weight', '')
             if weight:
                 mid_point = QPoint((start.x() + end.x()) // 2, (start.y() + end.y()) // 2)
+                painter.setPen(QPen(palette.windowText().color(), 2))
                 painter.drawText(mid_point, str(weight))
 
     def _draw_arrow(self, painter, end_point, angle):
@@ -343,29 +354,50 @@ class GraphWidget(QWidget):
 
     def _draw_vertex(self, painter, vertex):
         """Отрисовывает вершину графа"""
+        palette = getattr(self, '_palette', None)
+        if palette is None:
+            from PySide6.QtWidgets import QApplication
+            palette = QApplication.palette()
         pos = self.vertex_positions[vertex]
-        
-        if self.adding_edge and (vertex == self.edge_start or vertex == self.selected_vertex):
-            painter.setPen(QPen(Qt.GlobalColor.red, 2))
+        # Начальная и конечная вершины
+        is_start = False
+        is_end = False
+        # Для Дейкстры
+        if getattr(self, 'dijkstra_start_vertex', None) is not None:
+            is_start = (vertex == self.dijkstra_start_vertex)
+        if getattr(self, 'dijkstra_end_vertex', None) is not None:
+            is_end = (vertex == self.dijkstra_end_vertex)
+        # Для BFS/DFS (если нужно)
+        if not is_start and hasattr(self, 'bfs_path') and self.bfs_path:
+            if vertex == self.bfs_path[0][0]:
+                is_start = True
+            if vertex == self.bfs_path[-1][1]:
+                is_end = True
+        if is_start:
+            painter.setPen(QPen(palette.windowText().color(), 2))
+            painter.setBrush(QColor(255, 215, 0))  # жёлтый
+        elif is_end:
+            painter.setPen(QPen(palette.windowText().color(), 2))
+            painter.setBrush(QColor(220, 0, 0))  # красный
+        elif self.adding_edge and (vertex == self.edge_start or vertex == self.selected_vertex):
+            painter.setPen(QPen(palette.link().color(), 2))
+            painter.setBrush(palette.base().color())
         else:
-            painter.setPen(QPen(Qt.GlobalColor.black, 2))
-        
-        if vertex == self.bfs_current:
-            painter.setBrush(QColor(255, 165, 0))  # оранжевый
-        elif vertex in self.visited_vertices:
-            painter.setBrush(QColor(144, 238, 144))  # светло-зеленый
-        else:
-            painter.setBrush(QColor(200, 200, 200))  # серый
-            
+            painter.setPen(QPen(palette.windowText().color(), 2))
+            if vertex == self.bfs_current:
+                painter.setBrush(palette.highlight().color())
+            elif vertex in self.visited_vertices:
+                painter.setBrush(palette.alternateBase().color())
+            else:
+                painter.setBrush(palette.base().color())
         painter.drawEllipse(pos, 20, 20)
+        painter.setPen(QPen(palette.windowText().color(), 2))
         painter.drawText(pos.x() - 5, pos.y() + 5, str(vertex))
-        
         # Отображаем расстояние над вершиной
         if vertex in self.distances:
             distance = self.distances[vertex]
             distance_text = "∞" if distance == float('inf') else str(distance)
             painter.drawText(pos.x() - 15, pos.y() - 25, distance_text)
-        
         # Отображаем текст сравнения над расстоянием, если есть
         if vertex in self.comparison_text:
             comparison = self.comparison_text[vertex]
@@ -424,6 +456,9 @@ class GraphWidget(QWidget):
         new_vertex = max(self.graph.nodes()) + 1 if self.graph.nodes() else 0
         self.graph.add_node(new_vertex)
         self.vertex_positions[new_vertex] = pos
+        # Сброс выделения начальной/конечной вершины
+        self.dijkstra_start_vertex = None
+        self.dijkstra_end_vertex = None
         self.update()
 
     def _handle_edge_creation(self, vertex):
@@ -500,6 +535,10 @@ class GraphWidget(QWidget):
                 self.graph.add_edge(self.edge_start, self.selected_vertex, weight=weight)
         else:
             self.graph.add_edge(self.edge_start, self.selected_vertex)
+        # Сброс выделения начальной/конечной вершины
+        self.dijkstra_start_vertex = None
+        self.dijkstra_end_vertex = None
+        self.update()
 
     def start_adding_vertex(self):
         """Включает режим добавления вершины"""
@@ -541,4 +580,7 @@ class GraphWidget(QWidget):
         self.bfs_current_edge = None
         self.distances = {}
         self.comparison_text = {}
+        # Сброс выделения начальной/конечной вершины
+        self.dijkstra_start_vertex = None
+        self.dijkstra_end_vertex = None
         self.update() 

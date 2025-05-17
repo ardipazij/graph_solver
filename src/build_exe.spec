@@ -15,7 +15,12 @@ a = Analysis(
         'widgets.main_window',
         'widgets.graph_widget',
         'algorithms.graph_algorithms',
-        'utils.graph_utils'
+        'utils.graph_utils',
+	'networkx',
+	'PySide6',
+	'PySide6.QtWidgets',
+	'PySide6.QtCore',
+	'PySide6.QtGui'
     ],
     hookspath=[],
     hooksconfig={},

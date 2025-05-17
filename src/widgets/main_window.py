@@ -77,18 +77,6 @@ class MainWindow(QMainWindow):
         
         # Создаем метку для отображения текущего шага алгоритма
         self.algorithm_step_label = QLabel()
-        self.algorithm_step_label.setStyleSheet("""
-            QLabel {
-                background-color: rgba(74, 144, 226, 0.95);
-                color: white;
-                padding: 15px;
-                border-radius: 8px;
-                font-size: 16px;
-                font-family: 'Arial', sans-serif;
-                font-weight: bold;
-                margin: 10px;
-            }
-        """)
         self.algorithm_step_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self.algorithm_step_label.setWordWrap(True)
         self.algorithm_step_label.setMinimumHeight(40)
@@ -146,18 +134,6 @@ class MainWindow(QMainWindow):
         
         # Создаем кнопку справки
         self.help_btn = QPushButton("Справка")
-        self.help_btn.setStyleSheet("""
-            QPushButton {
-                background-color: #4a90e2;
-                color: white;
-                border: none;
-                border-radius: 5px;
-                padding: 5px;
-            }
-            QPushButton:hover {
-                background-color: #357abd;
-            }
-        """)
         
         # Кнопка для генерации случайного графа
         self.generate_btn = QPushButton("Сгенерировать граф")
@@ -221,32 +197,10 @@ class MainWindow(QMainWindow):
         self.pseudocode_widget = QTextEdit()
         self.pseudocode_widget.setReadOnly(True)
         self.pseudocode_widget.setMinimumWidth(400)
-        self.pseudocode_widget.setStyleSheet("""
-            QTextEdit {
-                background-color: #f8f9fa;
-                border: 1px solid #dee2e6;
-                border-radius: 5px;
-                padding: 10px;
-                font-family: 'Consolas', 'Courier New', monospace;
-                font-size: 14px;
-                line-height: 1.5;
-            }
-        """)
         # Виджет для отображения состояния переменных
         self.variables_widget = QTextEdit()
         self.variables_widget.setReadOnly(True)
         self.variables_widget.setMinimumWidth(300)
-        self.variables_widget.setStyleSheet("""
-            QTextEdit {
-                background-color: #f8f9fa;
-                border: 1px solid #dee2e6;
-                border-radius: 5px;
-                padding: 10px;
-                font-family: 'Consolas', 'Courier New', monospace;
-                font-size: 14px;
-                line-height: 1.5;
-            }
-        """)
         right_content_layout.addWidget(self.pseudocode_widget)
         right_content_layout.addWidget(self.variables_widget)
         self.right_panel_content.setLayout(right_content_layout)
@@ -266,35 +220,15 @@ class MainWindow(QMainWindow):
         self.explanation_widget.setVisible(True)
         self.explanation_widget.setMinimumHeight(100)
         self.explanation_widget.setMaximumHeight(150)  # Ограничиваем максимальную высоту
-        self.explanation_widget.setStyleSheet("""
-            QTextEdit {
-                background-color: #f0f0f0;
-                border: 2px solid #ccc;
-                border-radius: 5px;
-                padding: 10px;
-                font-family: 'Arial', sans-serif;
-                font-size: 14px;
-            }
-        """)
         explanation_layout.addWidget(self.explanation_widget)
         # --- Плашка справки ---
         self.help_panel = QWidget()
-        self.help_panel.setStyleSheet("""
-            QWidget {
-                background-color: #e6f0fa;
-                border: 2px solid #4a90e2;
-                border-radius: 8px;
-                padding: 10px;
-            }
-        """)
         help_layout = QVBoxLayout(self.help_panel)
         self.help_text = QTextEdit()
         self.help_text.setReadOnly(True)
-        self.help_text.setStyleSheet("background: transparent; border: none; font-size: 14px;")
         self.help_text.setTextInteractionFlags(Qt.TextSelectableByMouse)
         self.help_panel.setVisible(False)
         self.help_toggle_btn = QPushButton("Свернуть")
-        self.help_toggle_btn.setStyleSheet("padding: 2px 8px; font-size: 12px;")
         self.help_toggle_btn.clicked.connect(self.toggle_help_panel)
         help_layout.addWidget(self.help_text)
         help_layout.addWidget(self.help_toggle_btn, alignment=Qt.AlignmentFlag.AlignRight)
@@ -314,26 +248,6 @@ class MainWindow(QMainWindow):
         self.speed_slider.setValue(2)     # 1x по умолчанию
         self.speed_slider.setTickPosition(QSlider.TickPosition.TicksBelow)
         self.speed_slider.setTickInterval(1)
-        self.speed_slider.setStyleSheet("""
-            QSlider::groove:horizontal {
-                border: 1px solid #999999;
-                height: 8px;
-                background: #f0f0f0;
-                margin: 2px 0;
-                border-radius: 4px;
-            }
-            QSlider::handle:horizontal {
-                background: #4a90e2;
-                border: 1px solid #5c5c5c;
-                width: 18px;
-                margin: -2px 0;
-                border-radius: 9px;
-            }
-            QSlider::sub-page:horizontal {
-                background: #4a90e2;
-                border-radius: 4px;
-            }
-        """)
         # Метка скорости
         self.speed_value_label = QLabel("1x")
         self.speed_value_label.setMinimumWidth(40)
@@ -342,18 +256,6 @@ class MainWindow(QMainWindow):
         self.pause_btn = QPushButton("⏸")
         self.pause_btn.setCheckable(True)
         self.pause_btn.setFixedSize(30, 30)
-        self.pause_btn.setStyleSheet("""
-            QPushButton {
-                background-color: #f0f0f0;
-                border: 1px solid #ccc;
-                border-radius: 15px;
-                font-size: 16px;
-            }
-            QPushButton:checked {
-                background-color: #4a90e2;
-                color: white;
-            }
-        """)
         # Добавляем элементы вертикально
         speed_vlayout.addWidget(speed_label)
         speed_vlayout.addWidget(self.speed_slider)
@@ -369,7 +271,6 @@ class MainWindow(QMainWindow):
             QWidget {
                 border: 2px solid #4a90e2;
                 border-radius: 5px;
-                background-color: white;
             }
         """)
         graph_layout = QVBoxLayout(graph_container)
@@ -917,28 +818,29 @@ class MainWindow(QMainWindow):
         """Обработчик выбора вершины для алгоритма Дейкстры"""
         if not hasattr(self.dijkstra_algorithm, 'waiting_for_end') or not self.dijkstra_algorithm.waiting_for_end:
             # Первый клик - выбор начальной вершины
+            self.graph_widget.dijkstra_start_vertex = vertex
+            self.graph_widget.dijkstra_end_vertex = None
+            self.graph_widget.update()
             # Создаем и настраиваем таймер анимации
             self.animation_timer = QTimer()
             self.animation_timer.timeout.connect(lambda: self._algorithm_step(self.dijkstra_algorithm))
-            
             # Запускаем алгоритм
             message = self.dijkstra_algorithm.start(vertex)
             self.algorithm_step_label.setText(message)
-            
             # Используем текущее значение скорости
             speed_multipliers = {0: 0.25, 1: 0.5, 2: 1.0, 3: 2.0, 4: 4.0}
             current_multiplier = speed_multipliers[self.speed_slider.value()]
             self.current_delay = int(1000 / current_multiplier)
-            
             # Сбрасываем состояние паузы
             self.pause_btn.setChecked(False)
             self.pause_btn.setText("⏸")
             self.is_paused = False
         else:
             # Второй клик - выбор конечной вершины
+            self.graph_widget.dijkstra_end_vertex = vertex
+            self.graph_widget.update()
             message = self.dijkstra_algorithm.set_end_vertex(vertex)
             self.algorithm_step_label.setText(message)
-            
             # Запускаем анимацию
             self.animation_timer.setInterval(self.current_delay)
             self.animation_timer.start()
