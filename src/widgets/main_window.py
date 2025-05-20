@@ -11,7 +11,7 @@ from PySide6.QtGui import QFontMetrics, QFont
 import networkx as nx
 
 from widgets.graph_widget import GraphWidget
-from algorithms.graph_algorithms import BFSAlgorithm, DFSAlgorithm, DijkstraAlgorithm
+from algorithms.graph_algorithms import BFSAlgorithm, DFSAlgorithm, DijkstraAlgorithm, BellmanFordAlgorithm
 from utils.graph_utils import (load_graph_from_file, save_graph_to_file,
                            parse_matrix, create_graph_from_adjacency_matrix,
                            create_graph_from_incidence_matrix, is_weighted,
@@ -35,6 +35,7 @@ class MainWindow(QMainWindow):
         self.bfs_algorithm = BFSAlgorithm(self)
         self.dfs_algorithm = DFSAlgorithm(self)
         self.dijkstra_algorithm = DijkstraAlgorithm(self)
+        self.bellman_ford_algorithm = BellmanFordAlgorithm(self)
         
         # Инициализация состояния
         self.is_paused = False
@@ -119,7 +120,8 @@ class MainWindow(QMainWindow):
         self.algorithms_menu = QMenu()
         self.bfs_action = self.algorithms_menu.addAction("BFS (поиск в ширину)")
         self.dfs_action = self.algorithms_menu.addAction("DFS (поиск в глубину)")
-        self.dijkstra_action = self.algorithms_menu.addAction("Поиск кратчайшего пути")
+        self.dijkstra_action = self.algorithms_menu.addAction("Дейкстра (кратчайший путь)")
+        self.bellman_ford_action = self.algorithms_menu.addAction("Беллман-Форд (кратчайший путь)")
         self.algorithms_btn.setMenu(self.algorithms_menu)
         
         # Создаем кнопку с выпадающим меню для выбора размещения
@@ -333,6 +335,7 @@ class MainWindow(QMainWindow):
         self.bfs_action.triggered.connect(self.start_bfs)
         self.dfs_action.triggered.connect(self.start_dfs)
         self.dijkstra_action.triggered.connect(self.start_dijkstra)
+        self.bellman_ford_action.triggered.connect(self.start_bellman_ford)
         self.directed_checkbox.stateChanged.connect(self.on_directed_changed)
         self.weighted_checkbox.stateChanged.connect(self.on_weighted_changed)
         self.speed_slider.valueChanged.connect(self.on_speed_changed)
@@ -549,6 +552,7 @@ class MainWindow(QMainWindow):
             self.graph_widget.set_graph(new_graph)
 
     def show_pseudocode(self, algorithm):
+        """Показывает псевдокод выбранного алгоритма"""
         self.pseudocode_container.setVisible(True)
         pseudocodes = {
             'BFS': '''Алгоритм BFS (поиск в ширину):
@@ -636,6 +640,36 @@ class MainWindow(QMainWindow):
        path.reverse()
 
 4. Завершение:
+   Возвращаем distances[end], path''',
+            
+            'bellman_ford': '''Алгоритм Беллмана-Форда:
+1. Инициализация:
+   distances = {v: ∞ для всех вершин v}  // расстояния до вершин
+   previous = {v: null для всех вершин v} // предыдущие вершины
+   distances[start] = 0                   // расстояние до начальной вершины
+   path = []                             // путь до конечной вершины
+
+2. Основной цикл (V-1 раз):
+   Для каждого ребра (u,v) с весом w:
+       Если distances[u] + w < distances[v]:
+           distances[v] = distances[u] + w  // обновляем расстояние
+           previous[v] = u                  // запоминаем предыдущую вершину
+
+3. Проверка на отрицательные циклы:
+   Для каждого ребра (u,v) с весом w:
+       Если distances[u] + w < distances[v]:
+           Найден отрицательный цикл
+           Выход с ошибкой
+
+4. Восстановление пути:
+   Если previous[end] не null:
+       current = end
+       Пока current не null:
+           path.append(current)
+           current = previous[current]
+       path.reverse()
+
+5. Завершение:
    Возвращаем distances[end], path'''
         }
         
@@ -697,8 +731,17 @@ class MainWindow(QMainWindow):
         if hasattr(self, 'animation_timer') and self.animation_timer.isActive():
             self.animation_timer.setInterval(self.current_delay)
 
+    def stop_animation(self):
+        """Останавливает текущую анимацию алгоритма (если есть)"""
+        if hasattr(self, 'animation_timer') and self.animation_timer.isActive():
+            self.animation_timer.stop()
+        if hasattr(self, 'timer') and self.timer.isActive():
+            self.timer.stop()
+        self.pause_btn.setChecked(False)
+        self.is_paused = False
+
     def start_bfs(self):
-        """Запускает алгоритм BFS"""
+        self.stop_animation()
         self.graph_widget.reset_visual_state()
         self.variables_widget.clear()
         self.pseudocode_widget.clear()
@@ -741,7 +784,7 @@ class MainWindow(QMainWindow):
             self.animation_timer.start()
 
     def start_dfs(self):
-        """Запускает алгоритм DFS"""
+        self.stop_animation()
         self.graph_widget.reset_visual_state()
         self.variables_widget.clear()
         self.pseudocode_widget.clear()
@@ -784,14 +827,23 @@ class MainWindow(QMainWindow):
             self.animation_timer.start()
 
     def start_dijkstra(self):
-        """Запускает алгоритм поиска кратчайшего пути"""
+        self.stop_animation()
         self.graph_widget.reset_visual_state()
         self.variables_widget.clear()
         self.pseudocode_widget.clear()
         if not self.graph_widget.graph.nodes():
             QMessageBox.warning(self, "Ошибка", "Граф пуст")
             return
-            
+        # Проверка на отрицательные веса рёбер
+        for u, v, data in self.graph_widget.graph.edges(data=True):
+            if data.get('weight', 1) < 0:
+                QMessageBox.critical(
+                    self,
+                    "Ошибка: отрицательные веса",
+                    "Алгоритм Дейкстры не поддерживает отрицательные веса рёбер!\n"
+                    "Для таких графов используйте алгоритм Беллмана-Форда."
+                )
+                return
         if not self.weighted_checkbox.isChecked():
             response = QMessageBox.question(
                 self,
@@ -801,14 +853,11 @@ class MainWindow(QMainWindow):
             )
             if response == QMessageBox.StandardButton.No:
                 return
-            
         self.show_pseudocode('Dijkstra')
-        
         # Показываем сообщение о необходимости выбрать начальную вершину
         self.algorithm_step_label.setText("Выберите начальную вершину")
         self.algorithm_step_label.setVisible(True)
         self.opacity_effect.setOpacity(1.0)
-        
         # Включаем режим выбора вершины
         self.graph_widget.waiting_for_vertex_selection = True
         self.graph_widget.vertex_selection_callback = self._on_dijkstra_vertex_selected
@@ -1111,7 +1160,28 @@ previous = {previous}
 unvisited = {sorted(list(unvisited))}
 path = {path}"""
             
-        self.variables_widget.setPlainText(text) 
+        elif algorithm == 'bellman_ford':
+            distances = state.get('distances', {})
+            previous = state.get('previous', {})
+            iteration = state.get('iteration', 0)
+            edge_index = state.get('edge_index', 0)
+            max_iterations = state.get('max_iterations', 0)
+            start_vertex = state.get('start_vertex', None)
+            end_vertex = state.get('end_vertex', None)
+            negative_cycle = state.get('negative_cycle', False)
+            path = state.get('path', [])
+            text = f"""Состояние переменных:
+distances = {distances}
+previous = {previous}
+iteration = {iteration}/{max_iterations}
+edge_index = {edge_index}
+start_vertex = {start_vertex}
+end_vertex = {end_vertex}
+negative_cycle = {negative_cycle}
+path = {path}"""
+        else:
+            text = ""
+        self.variables_widget.setPlainText(text)
 
     def set_algorithm_step_text(self, text):
         label = self.algorithm_step_label
@@ -1158,4 +1228,65 @@ path = {path}"""
             self.explanation_toggle_btn.setText("Пояснения (скрыты)")
         else:
             self.explanation_panel.setVisible(True)
-            self.explanation_toggle_btn.setText("Скрыть пояснения") 
+            self.explanation_toggle_btn.setText("Скрыть пояснения")
+
+    def start_bellman_ford(self):
+        self.stop_animation()
+        self.graph_widget.reset_visual_state()
+        self.variables_widget.clear()
+        self.pseudocode_widget.clear()
+        if not self.graph_widget.graph.nodes():
+            QMessageBox.warning(self, "Ошибка", "Граф пуст")
+            return
+
+        # Проверяем, является ли граф взвешенным
+        if not self.weighted_checkbox.isChecked():
+            response = QMessageBox.question(
+                self,
+                "Предупреждение",
+                "Граф не взвешенный. Все рёбра будут иметь вес 1. Продолжить?",
+                QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No
+            )
+            if response == QMessageBox.StandardButton.No:
+                return
+
+        self.show_pseudocode('bellman_ford')
+        # Показываем сообщение о необходимости выбрать начальную вершину
+        self.algorithm_step_label.setText("Выберите начальную вершину")
+        self.algorithm_step_label.setVisible(True)
+        self.opacity_effect.setOpacity(1.0)
+        # Включаем режим выбора вершины
+        self.graph_widget.waiting_for_vertex_selection = True
+        self.graph_widget.vertex_selection_callback = self._on_bellman_ford_vertex_selected
+        self.graph_widget.update()  # Обновляем отображение
+
+    def _on_bellman_ford_vertex_selected(self, vertex):
+        """Обработчик выбора вершины для алгоритма Беллмана-Форда"""
+        if not hasattr(self.bellman_ford_algorithm, 'waiting_for_end') or not self.bellman_ford_algorithm.waiting_for_end:
+            # Первый клик - выбор начальной вершины
+            self.graph_widget.dijkstra_start_vertex = vertex
+            self.graph_widget.dijkstra_end_vertex = None
+            self.graph_widget.update()
+            # Создаем и настраиваем таймер анимации
+            self.animation_timer = QTimer()
+            self.animation_timer.timeout.connect(lambda: self._algorithm_step(self.bellman_ford_algorithm))
+            # Запускаем алгоритм
+            message = self.bellman_ford_algorithm.start(vertex)
+            self.algorithm_step_label.setText(message)
+            # Используем текущее значение скорости
+            speed_multipliers = {0: 0.25, 1: 0.5, 2: 1.0, 3: 2.0, 4: 4.0}
+            current_multiplier = speed_multipliers[self.speed_slider.value()]
+            self.current_delay = int(1000 / current_multiplier)
+            # Сбрасываем состояние паузы
+            self.pause_btn.setChecked(False)
+            self.pause_btn.setText("⏸")
+            self.is_paused = False
+        else:
+            # Второй клик - выбор конечной вершины
+            self.graph_widget.dijkstra_end_vertex = vertex
+            self.graph_widget.update()
+            message = self.bellman_ford_algorithm.set_end_vertex(vertex)
+            self.algorithm_step_label.setText(message)
+            # Запускаем анимацию
+            self.animation_timer.setInterval(self.current_delay)
+            self.animation_timer.start() 

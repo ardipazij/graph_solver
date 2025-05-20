@@ -519,7 +519,7 @@ class GraphWidget(QWidget):
         current_weight = self.graph[self.edge_start][self.selected_vertex].get('weight', 1.0)
         weight, ok = QInputDialog.getDouble(
             self, 'Редактировать вес ребра', 'Введите новый вес ребра:',
-            value=current_weight, min=-1000.0, max=1000.0, decimals=2
+            current_weight, -1000.0, 1000.0, 2
         )
         if ok:
             self.graph[self.edge_start][self.selected_vertex]['weight'] = weight
@@ -529,7 +529,7 @@ class GraphWidget(QWidget):
         if self.main_window.weighted_checkbox.isChecked():
             weight, ok = QInputDialog.getDouble(
                 self, 'Вес ребра', 'Введите вес ребра:',
-                value=1.0, min=-1000.0, max=1000.0, decimals=2
+                1.0, -1000.0, 1000.0, 2
             )
             if ok:
                 self.graph.add_edge(self.edge_start, self.selected_vertex, weight=weight)

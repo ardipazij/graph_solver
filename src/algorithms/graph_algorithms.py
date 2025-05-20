@@ -25,6 +25,12 @@ class GraphAlgorithm:
         self.main_window.graph_widget.bfs_current_edge = None
         self.main_window.graph_widget.visited_vertices.clear()
         self.main_window.graph_widget.bfs_current = None
+    def start(self):
+        pass
+    def next_step(self):
+        pass
+    def _get_state(self):
+        pass
 
 class BFSAlgorithm(GraphAlgorithm):
     """Реализация алгоритма поиска в ширину (BFS)"""
@@ -396,5 +402,190 @@ class DijkstraAlgorithm(GraphAlgorithm):
             'current_neighbor': self.current_neighbor,
             'comparison_step': self.comparison_step,
             'current_distance': self.current_distance,
+            'path': self.shortest_path
+        }
+
+class BellmanFordAlgorithm(GraphAlgorithm):
+    """Реализация алгоритма поиска кратчайшего пути (Беллман-Форд) с подсветкой финального пути и строк псевдокода"""
+    def __init__(self, main_window):
+        super().__init__(main_window)
+        self.distances = {}
+        self.previous = {}
+        self.vertices = []
+        self.edges = []
+        self.iteration = 0
+        self.edge_index = 0
+        self.max_iterations = 0
+        self.end_vertex = None
+        self.start_vertex = None
+        self.waiting_for_end = False
+        self.negative_cycle = False
+        self.shortest_path = []
+
+    def reset(self):
+        super().reset()
+        self.distances = {}
+        self.previous = {}
+        self.vertices = []
+        self.edges = []
+        self.iteration = 0
+        self.edge_index = 0
+        self.max_iterations = 0
+        self.end_vertex = None
+        self.start_vertex = None
+        self.waiting_for_end = False
+        self.negative_cycle = False
+        self.shortest_path = []
+        self.main_window.graph_widget.distances = {}
+        self.main_window.graph_widget.bfs_current_edge = None
+        self.main_window.graph_widget.bfs_current = None
+        self.main_window.graph_widget.bfs_path = []
+
+    def start(self, start_vertex):
+        self.reset()
+        graph = self.main_window.graph_widget.graph
+        self.vertices = list(graph.nodes())
+        # Для неориентированного графа добавляем обратные рёбра
+        if isinstance(graph, nx.DiGraph):
+            self.edges = list(graph.edges(data=True))
+        else:
+            edges = list(graph.edges(data=True))
+            undirected_edges = []
+            for u, v, data in edges:
+                undirected_edges.append((u, v, data))
+                undirected_edges.append((v, u, data))
+            self.edges = undirected_edges
+        self.max_iterations = len(self.vertices) - 1
+        for v in self.vertices:
+            self.distances[v] = float('inf')
+            self.previous[v] = None
+        self.distances[start_vertex] = 0
+        self.start_vertex = start_vertex
+        self.waiting_for_end = True
+        self.main_window.graph_widget.distances = self.distances.copy()
+        self.main_window.graph_widget.bfs_current = start_vertex
+        self.main_window.graph_widget.waiting_for_vertex_selection = True
+        self.main_window.highlight_pseudocode_line(0)  # 1. Инициализация
+        self.main_window.graph_widget.update()
+        return "Выберите конечную вершину"
+
+    def set_end_vertex(self, end_vertex):
+        self.end_vertex = end_vertex
+        self.waiting_for_end = False
+        self.iteration = 0
+        self.edge_index = 0
+        self.negative_cycle = False
+        self.shortest_path = []
+        self.main_window.graph_widget.waiting_for_vertex_selection = False
+        self.main_window.highlight_pseudocode_line(6)  # 2. Основной цикл (V-1 раз)
+        self.main_window.graph_widget.update()
+        return f"Начинаем поиск кратчайшего пути от вершины {self.start_vertex} до вершины {end_vertex}"
+
+    def next_step(self):
+        if self.waiting_for_end:
+            self.main_window.highlight_pseudocode_line(0)
+            return False, "Выберите конечную вершину", self._get_state()
+        if self.negative_cycle:
+            self.main_window.highlight_pseudocode_line(15)  # Найден отрицательный цикл
+            msg = "Обнаружен отрицательный цикл! Кратчайший путь не существует."
+            self.main_window.graph_widget.bfs_current = None
+            self.main_window.graph_widget.bfs_current_edge = None
+            self.main_window.graph_widget.update()
+            return True, msg, self._get_state()
+        # Основной цикл (V-1 итераций)
+        if self.iteration < self.max_iterations:
+            if self.edge_index == 0:
+                self.main_window.highlight_pseudocode_line(6)  # 2. Основной цикл (V-1 раз)
+            if self.edge_index >= len(self.edges):
+                self.iteration += 1
+                self.edge_index = 0
+                self.main_window.highlight_pseudocode_line(6)  # завершение итерации
+                msg = f"Завершена итерация {self.iteration}"
+                self.main_window.graph_widget.bfs_current_edge = None
+                self.main_window.graph_widget.bfs_current = None
+                self.main_window.graph_widget.update()
+                return False, msg, self._get_state()
+            u, v, data = self.edges[self.edge_index]
+            weight = data.get('weight', 1)
+            self.main_window.graph_widget.bfs_current_edge = (u, v)
+            self.main_window.graph_widget.bfs_current = u
+            self.main_window.highlight_pseudocode_line(7)  # Для каждого ребра (u,v) с весом w
+            msg = f"Проверяем ребро ({u}, {v}) с весом {weight}: "
+            if self.distances[u] != float('inf'):
+                self.main_window.highlight_pseudocode_line(8)  # сравнение
+                if self.distances[u] + weight < self.distances[v]:
+                    old = self.distances[v]
+                    self.distances[v] = self.distances[u] + weight
+                    self.main_window.highlight_pseudocode_line(9)  # обновляем расстояние
+                    self.previous[v] = u
+                    self.main_window.highlight_pseudocode_line(10)  # обновляем previous
+                    msg += f"Обновляем расстояние: {old if old != float('inf') else '∞'} → {self.distances[v]} (previous[{v}] = {u})"
+                else:
+                    self.main_window.highlight_pseudocode_line(11)  # else-блок (ничего не делаем)
+                    msg += f"Без изменений. Текущее расстояние: {self.distances[v] if self.distances[v] != float('inf') else '∞'}"
+            else:
+                self.main_window.highlight_pseudocode_line(11)  # else-блок (ничего не делаем)
+                msg += f"Без изменений. Текущее расстояние: {self.distances[v] if self.distances[v] != float('inf') else '∞'}"
+            self.main_window.graph_widget.distances = self.distances.copy()
+            self.main_window.graph_widget.update()
+            self.edge_index += 1
+            return False, msg, self._get_state()
+        # Проверка на отрицательные циклы
+        if self.iteration == self.max_iterations:
+            self.main_window.highlight_pseudocode_line(14)  # Проверка на отрицательные циклы
+            for u, v, data in self.edges:
+                weight = data.get('weight', 1)
+                if self.distances[u] != float('inf') and self.distances[u] + weight < self.distances[v]:
+                    self.negative_cycle = True
+                    self.main_window.highlight_pseudocode_line(15)  # Найден отрицательный цикл
+                    msg = f"Обнаружен отрицательный цикл по ребру ({u}, {v})!"
+                    self.main_window.graph_widget.bfs_current_edge = (u, v)
+                    self.main_window.graph_widget.update()
+                    return True, msg, self._get_state()
+            # Восстановление пути
+            self.main_window.highlight_pseudocode_line(18)  # 4. Восстановление пути
+            self.shortest_path = self._reconstruct_path()
+            path_edges = [(self.shortest_path[i], self.shortest_path[i+1]) for i in range(len(self.shortest_path)-1)]
+            self.main_window.graph_widget.bfs_path = path_edges
+            distance = self.distances[self.end_vertex]
+            if distance == float('inf'):
+                self.main_window.highlight_pseudocode_line(26)  # 5. Завершение
+                msg = f"Путь до вершины {self.end_vertex} не найден"
+            else:
+                self.main_window.highlight_pseudocode_line(26)  # 5. Завершение
+                path_str = " → ".join(map(str, self.shortest_path))
+                msg = f"Найден кратчайший путь длиной {distance}:\n{path_str}"
+            self.main_window.graph_widget.bfs_current = None
+            self.main_window.graph_widget.bfs_current_edge = None
+            self.main_window.graph_widget.update()
+            self.iteration += 1  # чтобы не заходить сюда снова
+            return True, msg, self._get_state()
+        self.main_window.highlight_pseudocode_line(26)  # 5. Завершение
+        return True, "Поиск завершён!", self._get_state()
+
+    def _reconstruct_path(self):
+        path = []
+        current = self.end_vertex
+        while current is not None:
+            path.append(current)
+            current = self.previous[current]
+        path.reverse()
+        if path and path[0] == self.start_vertex:
+            return path
+        return []
+
+    def _get_state(self):
+        return {
+            'distances': self.distances.copy(),
+            'previous': self.previous.copy(),
+            'vertices': self.vertices,
+            'edges': self.edges,
+            'iteration': self.iteration,
+            'edge_index': self.edge_index,
+            'max_iterations': self.max_iterations,
+            'start_vertex': self.start_vertex,
+            'end_vertex': self.end_vertex,
+            'negative_cycle': self.negative_cycle,
+            'shortest_path': self.shortest_path,
             'path': self.shortest_path
         } 
