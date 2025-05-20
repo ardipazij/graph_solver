@@ -43,6 +43,8 @@ class GraphWidget(QWidget):
         # Для выделения начальной и конечной вершины кратчайшего пути
         self.dijkstra_start_vertex = None
         self.dijkstra_end_vertex = None
+        self.kruskal_total_weight = None
+        self.kruskal_sets = {}
 
     def resizeEvent(self, event):
         """Обработчик изменения размера виджета"""
@@ -307,6 +309,14 @@ class GraphWidget(QWidget):
             painter.setPen(QPen(palette.highlight().color(), 2, Qt.PenStyle.DashLine))
             start_pos = self.vertex_positions[self.edge_start]
             painter.drawLine(start_pos, self.last_mouse_pos)
+        # Overlay: вес остова
+        if hasattr(self, 'kruskal_total_weight') and self.kruskal_total_weight is not None:
+            painter.setPen(QPen(QColor(0, 120, 255), 2))
+            font = painter.font()
+            font.setPointSize(16)
+            painter.setFont(font)
+            text = f"Вес минимального остовного дерева: {self.kruskal_total_weight}"
+            painter.drawText(self.width() // 2 - 180, 40, text)
 
     def _draw_edge(self, painter, edge):
         """Отрисовывает ребро графа"""
@@ -359,6 +369,16 @@ class GraphWidget(QWidget):
             from PySide6.QtWidgets import QApplication
             palette = QApplication.palette()
         pos = self.vertex_positions[vertex]
+        # --- Краскал: цвет множества ---
+        color_palette = [QColor(255, 99, 71), QColor(135, 206, 250), QColor(144, 238, 144), QColor(255, 215, 0), QColor(221, 160, 221), QColor(255, 182, 193), QColor(255, 160, 122), QColor(152, 251, 152), QColor(176, 224, 230), QColor(255, 228, 181)]
+        set_label = None
+        if hasattr(self, 'kruskal_sets') and self.kruskal_sets:
+            for idx, (root, members) in enumerate(sorted(self.kruskal_sets.items())):
+                if vertex in members:
+                    color = color_palette[idx % len(color_palette)]
+                    painter.setBrush(color)
+                    set_label = str(idx+1) if len(self.kruskal_sets) > len(color_palette) else None
+                    break
         # Начальная и конечная вершины
         is_start = False
         is_end = False
@@ -392,6 +412,9 @@ class GraphWidget(QWidget):
         painter.drawEllipse(pos, 20, 20)
         painter.setPen(QPen(palette.windowText().color(), 2))
         painter.drawText(pos.x() - 5, pos.y() + 5, str(vertex))
+        if set_label:
+            painter.setPen(QPen(QColor(0,0,0), 2))
+            painter.drawText(pos.x() + 15, pos.y() + 20, set_label)
         # Отображаем расстояние над вершиной
         if vertex in self.distances:
             distance = self.distances[vertex]

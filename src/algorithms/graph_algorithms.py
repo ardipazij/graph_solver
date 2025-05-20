@@ -1148,13 +1148,37 @@ class KruskalAlgorithm(GraphAlgorithm):
             self.main_window.graph_widget.bfs_current_edge = None
             self.main_window.graph_widget.bfs_current = None
             self.main_window.graph_widget.update()
-            return True, "Построено минимальное остовное дерево!", self._get_state(), 'finish'
+            # Формируем отображение множеств для визуализации
+            sets = {}
+            for v in self.parent:
+                root = self.find(v)
+                if root not in sets:
+                    sets[root] = []
+                sets[root].append(v)
+            self.main_window.graph_widget.kruskal_sets = sets
+            # Считаем итоговый вес остова
+            total_weight = sum(self.main_window.graph_widget.graph[u][v].get('weight', 1) for u, v in self.mst_edges)
+            message = f"Построено минимальное остовное дерево!\nВес остова: {total_weight}"
+            if self.main_window.directed_checkbox.isChecked():
+                message += "\nОриентация дуг была проигнорирована, так как остовное дерево можно строить только для неориентированных графов"
+            return True, message, self._get_state(), 'finish'
         if self.edge_idx >= len(self.edges_sorted):
             self.main_window.graph_widget.bfs_path = self.mst_edges
             self.main_window.graph_widget.bfs_current_edge = None
             self.main_window.graph_widget.bfs_current = None
             self.main_window.graph_widget.update()
-            return True, "Рёбра закончились, остов построен!", self._get_state(), 'finish'
+            sets = {}
+            for v in self.parent:
+                root = self.find(v)
+                if root not in sets:
+                    sets[root] = []
+                sets[root].append(v)
+            self.main_window.graph_widget.kruskal_sets = sets
+            total_weight = sum(self.main_window.graph_widget.graph[u][v].get('weight', 1) for u, v in self.mst_edges)
+            message = f"Рёбра закончились, остов построен!\nВес остова: {total_weight}"
+            if self.main_window.directed_checkbox.isChecked():
+                message += "\nОриентация дуг была проигнорирована, так как остовное дерево можно строить только для неориентированных графов"
+            return True, message, self._get_state(), 'finish'
         u, v, data = self.edges_sorted[self.edge_idx]
         self.main_window.graph_widget.bfs_current_edge = (u, v)
         self.main_window.graph_widget.bfs_current = u
@@ -1164,9 +1188,25 @@ class KruskalAlgorithm(GraphAlgorithm):
             self.union(u, v)
             self.mst_edges.append((u, v))
             self.main_window.graph_widget.bfs_path = self.mst_edges
+            # Формируем отображение множеств для визуализации
+            sets = {}
+            for vv in self.parent:
+                root = self.find(vv)
+                if root not in sets:
+                    sets[root] = []
+                sets[root].append(vv)
+            self.main_window.graph_widget.kruskal_sets = sets
             self.main_window.graph_widget.update()
             message = f"Добавили ребро ({u}, {v}) в остов"
         else:
+            # Формируем отображение множеств для визуализации
+            sets = {}
+            for vv in self.parent:
+                root = self.find(vv)
+                if root not in sets:
+                    sets[root] = []
+                sets[root].append(vv)
+            self.main_window.graph_widget.kruskal_sets = sets
             message = f"Пропустили ребро ({u}, {v}), чтобы не образовать цикл"
         return False, message, self._get_state(), 'main_loop'
 

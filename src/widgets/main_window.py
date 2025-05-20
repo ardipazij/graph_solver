@@ -824,6 +824,7 @@ class MainWindow(QMainWindow):
                 if state:
                     self.update_variables_state(self.current_algorithm, state)
                 self._log_algorithm_step(str(message))
+                self.explanation_widget.append(str(message))
                 self._fade_timer = QTimer()
                 self._fade_timer.setSingleShot(True)
                 self._fade_timer.timeout.connect(self._fade_out_message)
@@ -841,6 +842,14 @@ class MainWindow(QMainWindow):
                 self.algorithm_step_label.setVisible(True)
                 self.opacity_effect.setOpacity(1.0)
                 self._log_algorithm_step("Алгоритм завершён")
+                # Для Краскала: overlay веса остова
+                if self.current_algorithm == 'Kruskal':
+                    # Получаем вес из последнего сообщения
+                    import re
+                    match = re.search(r'Вес остова: (\d+)', message)
+                    if match:
+                        self.graph_widget.kruskal_total_weight = int(match.group(1))
+                        self.graph_widget.update()
                 if hasattr(self, '_fade_timer'):
                     self._fade_timer.stop()
                 self._fade_timer = QTimer()
@@ -1305,6 +1314,7 @@ edges_sorted = {edges_sorted}  # отсортированные рёбра"""
         self.graph_widget.reset_visual_state()
         self.variables_widget.clear()
         self.pseudocode_widget.clear()
+        self.graph_widget.kruskal_total_weight = None  # очищаем overlay веса
         if not self.graph_widget.graph.nodes():
             QMessageBox.warning(self, "Ошибка", "Граф пуст")
             return
@@ -1320,6 +1330,7 @@ edges_sorted = {edges_sorted}  # отсортированные рёбра"""
             message = str(result)
             highlight_key = None
         self.algorithm_step_label.setText(str(message))
+        self.explanation_widget.append(str(message))
         if highlight_key:
             highlight_map = self.kruskal_algorithm.get_highlight_map()
             if highlight_key in highlight_map:
