@@ -511,8 +511,6 @@ class MainWindow(QMainWindow):
         if self.add_vertex_btn.isChecked():
             self.add_edge_btn.setChecked(False)
             self.graph_widget.start_adding_vertex()
-            # Останавливаем алгоритм при добавлении вершины
-            self.stop_animation()
         else:
             self.graph_widget.stop_adding()
 
@@ -521,8 +519,6 @@ class MainWindow(QMainWindow):
         if self.add_edge_btn.isChecked():
             self.add_vertex_btn.setChecked(False)
             self.graph_widget.start_adding_edge()
-            # Останавливаем алгоритм при добавлении ребра
-            self.stop_animation()
         else:
             self.graph_widget.stop_adding()
 
@@ -538,8 +534,6 @@ class MainWindow(QMainWindow):
                 new_graph.add_edge(edge[0], edge[1], **edge[2])
             
             self.graph_widget.set_graph(new_graph)
-            # Останавливаем алгоритм при изменении графа
-            self.stop_animation()
 
     def on_weighted_changed(self):
         """Обработчик изменения типа графа (взвешенный/невзвешенный)"""
@@ -559,27 +553,83 @@ class MainWindow(QMainWindow):
                     new_graph.add_edge(edge[0], edge[1])
             
             self.graph_widget.set_graph(new_graph)
-            # Останавливаем алгоритм при изменении графа
-            self.stop_animation()
 
-    def show_algorithm_pseudocode(self, algorithm_instance, highlight_key=None):
-        """Показывает псевдокод выбранного алгоритма с возможностью подсветки по ключу"""
-        pseudocode_lines = algorithm_instance.get_pseudocode()
-        highlight_map = algorithm_instance.get_highlight_map()
+    def show_pseudocode(self, algorithm):
+        """Показывает псевдокод выбранного алгоритма"""
         self.pseudocode_container.setVisible(True)
-        # Формируем HTML с подсветкой
+        pseudocodes = {
+            'BFS': '''Алгоритм BFS (поиск в ширину):\n1. Инициализация:\n   visited = ∅        // множество посещенных вершин\n   queue = [start]    // очередь вершин для обработки\n   result = []        // результат обхода\n   parent = {}        // словарь для хранения родительских вершин\n\n2. Основной цикл:\n   Пока queue не пуста:\n       vertex = queue.pop(0)    // берем первую вершину из очереди\n       result.append(vertex)    // добавляем в результат\n       visited.add(vertex)      // помечаем как посещенную\n\n       // Обработка соседей:\n       Для каждого соседа neighbor вершины vertex:\n           Если neighbor не посещен:\n               visited.add(neighbor)    // помечаем как посещенного\n               queue.append(neighbor)    // добавляем в очередь\n               parent[neighbor] = vertex // запоминаем родителя\n\n3. Завершение:\n   Возвращаем result, parent''',
+            'DFS': '''Алгоритм DFS (поиск в глубину):\n1. Инициализация:\n   visited = ∅        // множество посещенных вершин\n   stack = [start]    // стек вершин для обработки\n   result = []        // результат обхода\n   parent = {}        // словарь для хранения родительских вершин\n   discovery_time = {} // время обнаружения вершин\n   finish_time = {}   // время завершения обработки вершин\n   time = 0           // текущее время\n\n2. Основной цикл:\n   Пока stack не пуст:\n       vertex = stack.pop()     // берем последнюю вершину из стека\n       Если vertex не посещена:\n           time += 1\n           discovery_time[vertex] = time  // запоминаем время обнаружения\n           result.append(vertex)    // добавляем в результат\n           visited.add(vertex)      // помечаем как посещенную\n\n           // Обработка соседей:\n           Для каждого соседа neighbor вершины vertex:\n               Если neighbor не посещен:\n                   stack.append(neighbor)    // добавляем в стек\n                   parent[neighbor] = vertex // запоминаем родителя\n           time += 1\n           finish_time[vertex] = time  // запоминаем время завершения\n\n3. Завершение:\n   Возвращаем result, parent, discovery_time, finish_time''',
+            'Dijkstra': '''Алгоритм поиска кратчайшего пути (Дейкстра):\n1. Инициализация:\n   distances = {v: ∞ для всех вершин v}  // расстояния до вершин\n   previous = {v: null для всех вершин v} // предыдущие вершины\n   unvisited = все вершины графа         // непосещенные вершины\n   distances[start] = 0                   // расстояние до начальной вершины\n   path = []                             // путь до конечной вершины\n\n2. Основной цикл:\n   Пока есть непосещенные вершины:\n       v = вершина с min расстоянием среди непосещенных\n       Если v не найдена, выход         // нет пути до оставшихся вершин\n       Помечаем v как посещенную\n       \n       // Обновляем расстояния до соседей:\n       Для каждого соседа u вершины v:\n           d = distances[v] + вес ребра (v,u)\n           Если d < distances[u]:\n               distances[u] = d          // найден более короткий путь\n               previous[u] = v           // запоминаем предыдущую вершину\n           Иначе:\n               # оставляем текущее расстояние\n\n3. Восстановление пути:\n   Если previous[end] не null:\n       current = end\n       Пока current не null:\n           path.append(current)\n           current = previous[current]\n       path.reverse()\n\n4. Завершение:\n   Возвращаем distances[end], path''',
+            'bellman_ford': '''Алгоритм Беллмана-Форда:\n1. Инициализация:\n   distances = {v: ∞ для всех вершин v}  // расстояния до вершин\n   previous = {v: null для всех вершин v} // предыдущие вершины\n   distances[start] = 0                   // расстояние до начальной вершины\n   path = []                             // путь до конечной вершины\n\n2. Основной цикл (V-1 раз):\n   Для каждого ребра (u,v) с весом w:\n       Если distances[u] + w < distances[v]:\n           distances[v] = distances[u] + w  // обновляем расстояние\n           previous[v] = u                  // запоминаем предыдущую вершину\n\n3. Проверка на отрицательные циклы:\n   Для каждого ребра (u,v) с весом w:\n       Если distances[u] + w < distances[v]:\n           Найден отрицательный цикл\n           Выход с ошибкой\n\n4. Восстановление пути:\n   Если previous[end] не null:\n       current = end\n       Пока current не null:\n           path.append(current)\n           current = previous[current]\n       path.reverse()\n\n5. Завершение:\n   Возвращаем distances[end], path''',
+            'MaxPath': "\n".join(self.max_path_algorithm.get_pseudocode()),
+        }
+        if algorithm in pseudocodes:
+            self.pseudocode_widget.setPlainText(pseudocodes[algorithm])
+            self.pseudocode_widget.setVisible(True)
+            self.current_pseudocode = pseudocodes[algorithm]
+            self.current_algorithm = algorithm
+        else:
+            self.pseudocode_widget.setVisible(False)
+
+    def highlight_pseudocode_line(self, line_number):
+        """Подсвечивает указанную строку в псевдокоде"""
+        if not hasattr(self, 'current_pseudocode'):
+            return
+        
+        lines = self.current_pseudocode.split('\n')
         highlighted_lines = []
-        highlight_line = highlight_map.get(highlight_key, None) if highlight_key else None
-        for i, line in enumerate(pseudocode_lines):
-            if i == highlight_line:
+        
+        for i, line in enumerate(lines):
+            if i == line_number:
+                # Подсвечиваем только одну строку
                 highlighted_lines.append(f'<div style="background-color: #fff3cd; color: #000; font-weight: bold;">{line}</div>')
             else:
+                # Остальные строки — обычные
                 highlighted_lines.append(f'<div>{line}</div>')
         highlighted_text = ''.join(highlighted_lines)
         self.pseudocode_widget.setHtml(highlighted_text)
-        self.pseudocode_widget.setVisible(True)
-        self.current_pseudocode = '\n'.join(pseudocode_lines)
-        self.current_algorithm = algorithm_instance.get_name()
+
+    def toggle_pause(self):
+        """Переключает состояние паузы"""
+        self.is_paused = self.pause_btn.isChecked()
+        self.pause_btn.setText("▶" if self.is_paused else "⏸")
+        
+        if self.is_paused:
+            if hasattr(self, 'animation_timer') and self.animation_timer.isActive():
+                self.animation_timer.stop()
+        else:
+            if hasattr(self, 'animation_timer'):
+                if (hasattr(self.bfs_algorithm, 'queue') and self.bfs_algorithm.queue) or \
+                   (hasattr(self.dfs_algorithm, 'stack') and self.dfs_algorithm.stack) or \
+                   (hasattr(self.dijkstra_algorithm, 'distances') and self.dijkstra_algorithm.distances):
+                    self.animation_timer.start()
+
+    def on_speed_changed(self, value):
+        """Обработчик изменения значения слайдера скорости"""
+        speed_multipliers = {
+            0: 0.25,  # Очень медленно
+            1: 0.5,   # Медленно
+            2: 1.0,   # Нормально
+            3: 2.0,   # Быстро
+            4: 4.0    # Очень быстро
+        }
+        
+        multiplier = speed_multipliers[value]
+        self.current_delay = int(1000 / multiplier)
+        self.speed_value_label.setText(f"{multiplier}x")
+        
+        if hasattr(self, 'animation_timer') and self.animation_timer.isActive():
+            self.animation_timer.setInterval(self.current_delay)
+
+    def stop_animation(self):
+        """Останавливает текущую анимацию алгоритма (если есть)"""
+        if hasattr(self, 'animation_timer') and self.animation_timer.isActive():
+            self.animation_timer.stop()
+        if hasattr(self, 'timer') and self.timer.isActive():
+            self.timer.stop()
+        self.pause_btn.setChecked(False)
+        self.is_paused = False
 
     def start_bfs(self):
         self.stop_animation()
@@ -589,27 +639,38 @@ class MainWindow(QMainWindow):
         if not self.graph_widget.graph.nodes():
             QMessageBox.warning(self, "Ошибка", "Граф пуст")
             return
-        self.show_algorithm_pseudocode(self.bfs_algorithm, highlight_key='init')
+            
+        self.show_pseudocode('BFS')
         vertices = sorted(list(self.graph_widget.graph.nodes()))
+        
         if not vertices:
             return
+            
         vertex, ok = QInputDialog.getInt(
             self, 'Выбор начальной вершины',
             'Введите номер начальной вершины:',
             vertices[0], vertices[0], vertices[-1], 1
         )
+        
         if ok and vertex in vertices:
+            # Создаем и настраиваем таймер анимации
             self.animation_timer = QTimer()
             self.animation_timer.timeout.connect(lambda: self._algorithm_step(self.bfs_algorithm))
-            self.current_algorithm = self.bfs_algorithm
-            _, _, _, highlight_key = self.bfs_algorithm.start(vertex)
-            self.show_algorithm_pseudocode(self.bfs_algorithm, highlight_key=highlight_key)
+            
+            # Запускаем алгоритм
+            self.bfs_algorithm.start(vertex)
+            
+            # Используем текущее значение скорости
             speed_multipliers = {0: 0.25, 1: 0.5, 2: 1.0, 3: 2.0, 4: 4.0}
             current_multiplier = speed_multipliers[self.speed_slider.value()]
             self.current_delay = int(1000 / current_multiplier)
+            
+            # Сбрасываем состояние паузы
             self.pause_btn.setChecked(False)
             self.pause_btn.setText("⏸")
             self.is_paused = False
+            
+            # Запускаем анимацию
             self.animation_timer.setInterval(self.current_delay)
             self.animation_timer.start()
 
@@ -621,27 +682,38 @@ class MainWindow(QMainWindow):
         if not self.graph_widget.graph.nodes():
             QMessageBox.warning(self, "Ошибка", "Граф пуст")
             return
-        self.show_algorithm_pseudocode(self.dfs_algorithm, highlight_key='init')
+            
+        self.show_pseudocode('DFS')
         vertices = sorted(list(self.graph_widget.graph.nodes()))
+        
         if not vertices:
             return
+            
         vertex, ok = QInputDialog.getInt(
             self, 'Выбор начальной вершины',
             'Введите номер начальной вершины:',
             vertices[0], vertices[0], vertices[-1], 1
         )
+        
         if ok and vertex in vertices:
+            # Создаем и настраиваем таймер анимации
             self.animation_timer = QTimer()
             self.animation_timer.timeout.connect(lambda: self._algorithm_step(self.dfs_algorithm))
-            self.current_algorithm = self.dfs_algorithm
-            _, _, _, highlight_key = self.dfs_algorithm.start(vertex)
-            self.show_algorithm_pseudocode(self.dfs_algorithm, highlight_key=highlight_key)
+            
+            # Запускаем алгоритм
+            self.dfs_algorithm.start(vertex)
+            
+            # Используем текущее значение скорости
             speed_multipliers = {0: 0.25, 1: 0.5, 2: 1.0, 3: 2.0, 4: 4.0}
             current_multiplier = speed_multipliers[self.speed_slider.value()]
             self.current_delay = int(1000 / current_multiplier)
+            
+            # Сбрасываем состояние паузы
             self.pause_btn.setChecked(False)
             self.pause_btn.setText("⏸")
             self.is_paused = False
+            
+            # Запускаем анимацию
             self.animation_timer.setInterval(self.current_delay)
             self.animation_timer.start()
 
@@ -653,6 +725,7 @@ class MainWindow(QMainWindow):
         if not self.graph_widget.graph.nodes():
             QMessageBox.warning(self, "Ошибка", "Граф пуст")
             return
+        # Проверка на отрицательные веса рёбер
         for u, v, data in self.graph_widget.graph.edges(data=True):
             if data.get('weight', 1) < 0:
                 QMessageBox.critical(
@@ -671,25 +744,36 @@ class MainWindow(QMainWindow):
             )
             if response == QMessageBox.StandardButton.No:
                 return
-        self.show_algorithm_pseudocode(self.dijkstra_algorithm, highlight_key='init')
-        self.current_algorithm = self.dijkstra_algorithm
+        self.show_pseudocode('Dijkstra')
+        # Показываем сообщение о необходимости выбрать начальную вершину
         self.algorithm_step_label.setText("Выберите начальную вершину")
         self.algorithm_step_label.setVisible(True)
         self.opacity_effect.setOpacity(1.0)
+        # Включаем режим выбора вершины
         self.graph_widget.waiting_for_vertex_selection = True
         self.graph_widget.vertex_selection_callback = self._on_dijkstra_vertex_selected
-        self.graph_widget.update()
+        self.graph_widget.update()  # Обновляем отображение
 
     def _on_dijkstra_vertex_selected(self, vertex):
+        """Обработчик выбора вершины для алгоритма Дейкстры"""
         if not hasattr(self.dijkstra_algorithm, 'waiting_for_end') or not self.dijkstra_algorithm.waiting_for_end:
             self.graph_widget.dijkstra_start_vertex = vertex
             self.graph_widget.dijkstra_end_vertex = None
             self.graph_widget.update()
             self.animation_timer = QTimer()
             self.animation_timer.timeout.connect(lambda: self._algorithm_step(self.dijkstra_algorithm))
-            self.current_algorithm = self.dijkstra_algorithm
-            _, _, _, highlight_key = self.dijkstra_algorithm.start(vertex)
-            self.show_algorithm_pseudocode(self.dijkstra_algorithm, highlight_key=highlight_key)
+            result = self.dijkstra_algorithm.start(vertex)
+            if isinstance(result, tuple):
+                message = result[1] if len(result) > 1 else str(result[0])
+                highlight_key = result[3] if len(result) > 3 else None
+            else:
+                message = str(result)
+                highlight_key = None
+            self.algorithm_step_label.setText(str(message))
+            if highlight_key:
+                highlight_map = self.dijkstra_algorithm.get_highlight_map()
+                if highlight_key in highlight_map:
+                    self.highlight_pseudocode_line(highlight_map[highlight_key])
             speed_multipliers = {0: 0.25, 1: 0.5, 2: 1.0, 3: 2.0, 4: 4.0}
             current_multiplier = speed_multipliers[self.speed_slider.value()]
             self.current_delay = int(1000 / current_multiplier)
@@ -699,70 +783,59 @@ class MainWindow(QMainWindow):
         else:
             self.graph_widget.dijkstra_end_vertex = vertex
             self.graph_widget.update()
-            _, _, _, highlight_key = self.dijkstra_algorithm.set_end_vertex(vertex)
-            self.show_algorithm_pseudocode(self.dijkstra_algorithm, highlight_key=highlight_key)
+            result = self.dijkstra_algorithm.set_end_vertex(vertex)
+            if isinstance(result, tuple):
+                message = result[1] if len(result) > 1 else str(result[0])
+                highlight_key = result[3] if len(result) > 3 else None
+            else:
+                message = str(result)
+                highlight_key = None
+            self.algorithm_step_label.setText(str(message))
+            if highlight_key:
+                highlight_map = self.dijkstra_algorithm.get_highlight_map()
+                if highlight_key in highlight_map:
+                    self.highlight_pseudocode_line(highlight_map[highlight_key])
             self.animation_timer.setInterval(self.current_delay)
             self.animation_timer.start()
 
     def _algorithm_step(self, algorithm):
-        """Выполняет шаг алгоритма"""
         if not self.is_paused:
             step_info = algorithm.next_step()
-            if isinstance(step_info, tuple):
-                if len(step_info) == 4:
-                    is_finished, message, state, highlight_key = step_info
-                elif len(step_info) == 3:
-                    is_finished, message, state = step_info
-                    highlight_key = None
-                else:
-                    is_finished, message = step_info
-                    state = None
-                    highlight_key = None
+            if isinstance(step_info, tuple) and len(step_info) == 4:
+                is_finished, message, state, highlight_key = step_info
+            elif isinstance(step_info, tuple) and len(step_info) == 3:
+                is_finished, message, state = step_info
+                highlight_key = None
             else:
-                is_finished, message, state, highlight_key = step_info, None, None, None
+                is_finished, message, state, highlight_key = step_info, "", None, None
 
-            # Универсальная подсветка псевдокода
-            if highlight_key is not None:
-                self.show_algorithm_pseudocode(algorithm, highlight_key=highlight_key)
-
-            # Отменяем предыдущий таймер исчезновения, если он был
             if hasattr(self, '_fade_timer'):
                 self._fade_timer.stop()
 
-            # Формируем и показываем сообщение для каждого шага
             if message:
-                # Показываем сообщение
-                self.set_algorithm_step_text(message)
+                self.set_algorithm_step_text(str(message))
                 self.algorithm_step_label.setVisible(True)
                 self.opacity_effect.setOpacity(1.0)
-
-                # Обновляем состояние переменных
                 if state:
                     self.update_variables_state(self.current_algorithm, state)
-
-                # Записываем информацию в лог
-                self._log_algorithm_step(message)
-
-                # Создаем новый таймер для исчезновения
+                self._log_algorithm_step(str(message))
                 self._fade_timer = QTimer()
                 self._fade_timer.setSingleShot(True)
                 self._fade_timer.timeout.connect(self._fade_out_message)
                 self._fade_timer.start(int(self.current_delay * 1.5))
-
-            # Если алгоритм завершен, показываем сообщение о завершении
+                if highlight_key:
+                    algo = getattr(self, f"{self.current_algorithm.lower()}_algorithm", None)
+                    if algo and hasattr(algo, 'get_highlight_map'):
+                        highlight_map = algo.get_highlight_map()
+                        if highlight_key in highlight_map:
+                            self.highlight_pseudocode_line(highlight_map[highlight_key])
             if is_finished:
                 self.animation_timer.stop()
                 completion_message = "Обход завершен!"
-
-                # Показываем сообщение о завершении
                 self.set_algorithm_step_text(completion_message)
                 self.algorithm_step_label.setVisible(True)
                 self.opacity_effect.setOpacity(1.0)
-
-                # Записываем информацию о завершении в лог
                 self._log_algorithm_step("Алгоритм завершён")
-
-                # Создаем новый таймер для исчезновения
                 if hasattr(self, '_fade_timer'):
                     self._fade_timer.stop()
                 self._fade_timer = QTimer()
@@ -943,12 +1016,16 @@ class MainWindow(QMainWindow):
             queue = state.get('queue', [])
             result = state.get('result', [])
             parent = state.get('parent', {})
+            current_vertex = state.get('current_vertex', None)
+            current_neighbor = state.get('current_neighbor', None)
             
             text = f"""Состояние переменных:
-visited = {sorted(list(visited))}
-queue = {queue}
-result = {result}
-parent = {parent}"""
+visited = {sorted(list(visited))}  # посещенные вершины
+queue = {queue}  # очередь вершин для обработки
+result = {result}  # результат обхода
+parent = {parent}  # родительские вершины
+current_vertex = {current_vertex}  # текущая обрабатываемая вершина
+current_neighbor = {current_neighbor}  # текущий обрабатываемый сосед"""
             
         elif algorithm == 'DFS':
             visited = state.get('visited', set())
@@ -957,26 +1034,36 @@ parent = {parent}"""
             parent = state.get('parent', {})
             discovery_time = state.get('discovery_time', {})
             finish_time = state.get('finish_time', {})
+            current_vertex = state.get('current_vertex', None)
+            current_neighbor = state.get('current_neighbor', None)
             
             text = f"""Состояние переменных:
-visited = {sorted(list(visited))}
-stack = {stack}
-result = {result}
-parent = {parent}
-discovery_time = {discovery_time}
-finish_time = {finish_time}"""
+visited = {sorted(list(visited))}  # посещенные вершины
+stack = {stack}  # стек вершин для обработки
+result = {result}  # результат обхода
+parent = {parent}  # родительские вершины
+discovery_time = {discovery_time}  # время обнаружения вершин
+finish_time = {finish_time}  # время завершения обработки вершин
+current_vertex = {current_vertex}  # текущая обрабатываемая вершина
+current_neighbor = {current_neighbor}  # текущий обрабатываемый сосед"""
             
         elif algorithm == 'Dijkstra':
             distances = state.get('distances', {})
             previous = state.get('previous', {})
             unvisited = state.get('unvisited', set())
             path = state.get('path', [])
+            current_vertex = state.get('current_vertex', None)
+            current_neighbor = state.get('current_neighbor', None)
+            current_distance = state.get('current_distance', None)
             
             text = f"""Состояние переменных:
-distances = {distances}
-previous = {previous}
-unvisited = {sorted(list(unvisited))}
-path = {path}"""
+distances = {distances}  # расстояния до вершин
+previous = {previous}  # предыдущие вершины для восстановления пути
+unvisited = {sorted(list(unvisited))}  # непосещенные вершины
+path = {path}  # текущий путь
+current_vertex = {current_vertex}  # текущая обрабатываемая вершина
+current_neighbor = {current_neighbor}  # текущий обрабатываемый сосед
+current_distance = {current_distance}  # текущее расстояние"""
             
         elif algorithm == 'bellman_ford':
             distances = state.get('distances', {})
@@ -988,15 +1075,37 @@ path = {path}"""
             end_vertex = state.get('end_vertex', None)
             negative_cycle = state.get('negative_cycle', False)
             path = state.get('path', [])
+            current_edge = state.get('current_edge', None)
+            
             text = f"""Состояние переменных:
-distances = {distances}
-previous = {previous}
-iteration = {iteration}/{max_iterations}
-edge_index = {edge_index}
-start_vertex = {start_vertex}
-end_vertex = {end_vertex}
-negative_cycle = {negative_cycle}
-path = {path}"""
+distances = {distances}  # расстояния до вершин
+previous = {previous}  # предыдущие вершины для восстановления пути
+iteration = {iteration}/{max_iterations}  # текущая итерация
+edge_index = {edge_index}  # индекс текущего ребра
+start_vertex = {start_vertex}  # начальная вершина
+end_vertex = {end_vertex}  # конечная вершина
+negative_cycle = {negative_cycle}  # обнаружен отрицательный цикл
+path = {path}  # текущий путь
+current_edge = {current_edge}  # текущее обрабатываемое ребро"""
+
+        elif algorithm == 'MaxPath':
+            distances = state.get('distances', {})
+            previous = state.get('previous', {})
+            unvisited = state.get('unvisited', set())
+            path = state.get('path', [])
+            current_vertex = state.get('current_vertex', None)
+            current_neighbor = state.get('current_neighbor', None)
+            current_distance = state.get('current_distance', None)
+            
+            text = f"""Состояние переменных:
+distances = {distances}  # расстояния до вершин (ищем максимум)
+previous = {previous}  # предыдущие вершины для восстановления пути
+unvisited = {sorted(list(unvisited))}  # непосещенные вершины
+path = {path}  # текущий максимальный путь
+current_vertex = {current_vertex}  # текущая обрабатываемая вершина
+current_neighbor = {current_neighbor}  # текущий обрабатываемый сосед
+current_distance = {current_distance}  # текущее расстояние"""
+            
         else:
             text = ""
         self.variables_widget.setPlainText(text)
@@ -1056,6 +1165,8 @@ path = {path}"""
         if not self.graph_widget.graph.nodes():
             QMessageBox.warning(self, "Ошибка", "Граф пуст")
             return
+
+        # Проверяем, является ли граф взвешенным
         if not self.weighted_checkbox.isChecked():
             response = QMessageBox.question(
                 self,
@@ -1065,25 +1176,37 @@ path = {path}"""
             )
             if response == QMessageBox.StandardButton.No:
                 return
-        self.show_algorithm_pseudocode(self.bellman_ford_algorithm, highlight_key='init')
-        self.current_algorithm = self.bellman_ford_algorithm
+
+        self.show_pseudocode('bellman_ford')
+        # Показываем сообщение о необходимости выбрать начальную вершину
         self.algorithm_step_label.setText("Выберите начальную вершину")
         self.algorithm_step_label.setVisible(True)
         self.opacity_effect.setOpacity(1.0)
+        # Включаем режим выбора вершины
         self.graph_widget.waiting_for_vertex_selection = True
         self.graph_widget.vertex_selection_callback = self._on_bellman_ford_vertex_selected
-        self.graph_widget.update()
+        self.graph_widget.update()  # Обновляем отображение
 
     def _on_bellman_ford_vertex_selected(self, vertex):
+        """Обработчик выбора вершины для алгоритма Беллмана-Форда"""
         if not hasattr(self.bellman_ford_algorithm, 'waiting_for_end') or not self.bellman_ford_algorithm.waiting_for_end:
             self.graph_widget.dijkstra_start_vertex = vertex
             self.graph_widget.dijkstra_end_vertex = None
             self.graph_widget.update()
             self.animation_timer = QTimer()
             self.animation_timer.timeout.connect(lambda: self._algorithm_step(self.bellman_ford_algorithm))
-            self.current_algorithm = self.bellman_ford_algorithm
-            _, _, _, highlight_key = self.bellman_ford_algorithm.start(vertex)
-            self.show_algorithm_pseudocode(self.bellman_ford_algorithm, highlight_key=highlight_key)
+            result = self.bellman_ford_algorithm.start(vertex)
+            if isinstance(result, tuple):
+                message = result[1] if len(result) > 1 else str(result[0])
+                highlight_key = result[3] if len(result) > 3 else None
+            else:
+                message = str(result)
+                highlight_key = None
+            self.algorithm_step_label.setText(str(message))
+            if highlight_key:
+                highlight_map = self.bellman_ford_algorithm.get_highlight_map()
+                if highlight_key in highlight_map:
+                    self.highlight_pseudocode_line(highlight_map[highlight_key])
             speed_multipliers = {0: 0.25, 1: 0.5, 2: 1.0, 3: 2.0, 4: 4.0}
             current_multiplier = speed_multipliers[self.speed_slider.value()]
             self.current_delay = int(1000 / current_multiplier)
@@ -1093,54 +1216,23 @@ path = {path}"""
         else:
             self.graph_widget.dijkstra_end_vertex = vertex
             self.graph_widget.update()
-            _, _, _, highlight_key = self.bellman_ford_algorithm.set_end_vertex(vertex)
-            self.show_algorithm_pseudocode(self.bellman_ford_algorithm, highlight_key=highlight_key)
+            result = self.bellman_ford_algorithm.set_end_vertex(vertex)
+            if isinstance(result, tuple):
+                message = result[1] if len(result) > 1 else str(result[0])
+                highlight_key = result[3] if len(result) > 3 else None
+            else:
+                message = str(result)
+                highlight_key = None
+            self.algorithm_step_label.setText(str(message))
+            if highlight_key:
+                highlight_map = self.bellman_ford_algorithm.get_highlight_map()
+                if highlight_key in highlight_map:
+                    self.highlight_pseudocode_line(highlight_map[highlight_key])
             self.animation_timer.setInterval(self.current_delay)
-            self.animation_timer.start()
-
-    def on_speed_changed(self, value):
-        """Обработчик изменения значения слайдера скорости"""
-        speed_multipliers = {
-            0: 0.25,  # Очень медленно
-            1: 0.5,   # Медленно
-            2: 1.0,   # Нормально
-            3: 2.0,   # Быстро
-            4: 4.0    # Очень быстро
-        }
-        multiplier = speed_multipliers.get(value, 1.0)
-        self.current_delay = int(1000 / multiplier)
-        self.speed_value_label.setText(f"{multiplier}x")
-        # Если анимация активна — обновляем интервал
-        if hasattr(self, 'animation_timer') and self.animation_timer.isActive():
-            self.animation_timer.setInterval(self.current_delay)
-        if hasattr(self, 'timer') and self.timer.isActive():
-            self.timer.setInterval(self.current_delay)
-
-    def toggle_pause(self):
-        """Переключает состояние паузы"""
-        self.is_paused = self.pause_btn.isChecked()
-        self.pause_btn.setText("▶" if self.is_paused else "⏸")
-        if self.is_paused:
-            if hasattr(self, 'animation_timer') and self.animation_timer.isActive():
-                self.animation_timer.stop()
-            if hasattr(self, 'timer') and self.timer.isActive():
-                self.timer.stop()
-        else:
-            if hasattr(self, 'animation_timer') and not self.animation_timer.isActive():
-                self.animation_timer.start()
-            if hasattr(self, 'timer') and not self.timer.isActive():
-                self.timer.start() 
-
-    def stop_animation(self):
-        """Останавливает текущую анимацию алгоритма (если есть)"""
-        if hasattr(self, 'animation_timer') and self.animation_timer.isActive():
-            self.animation_timer.stop()
-        if hasattr(self, 'timer') and self.timer.isActive():
-            self.timer.stop()
-        self.pause_btn.setChecked(False)
-        self.is_paused = False 
+            self.animation_timer.start() 
 
     def start_max_path(self):
+        self.current_algorithm = 'MaxPath'
         self.stop_animation()
         self.graph_widget.reset_visual_state()
         self.variables_widget.clear()
@@ -1148,17 +1240,7 @@ path = {path}"""
         if not self.graph_widget.graph.nodes():
             QMessageBox.warning(self, "Ошибка", "Граф пуст")
             return
-        if not self.weighted_checkbox.isChecked():
-            response = QMessageBox.question(
-                self,
-                "Предупреждение",
-                "Граф не взвешенный. Все рёбра будут иметь вес 1. Продолжить?",
-                QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No
-            )
-            if response == QMessageBox.StandardButton.No:
-                return
-        self.show_algorithm_pseudocode(self.max_path_algorithm, highlight_key='init')
-        self.current_algorithm = self.max_path_algorithm
+        self.show_pseudocode('MaxPath')
         self.algorithm_step_label.setText("Выберите начальную вершину")
         self.algorithm_step_label.setVisible(True)
         self.opacity_effect.setOpacity(1.0)
@@ -1167,15 +1249,25 @@ path = {path}"""
         self.graph_widget.update()
 
     def _on_max_path_vertex_selected(self, vertex):
+        self.current_algorithm = 'MaxPath'
         if not hasattr(self.max_path_algorithm, 'waiting_for_end') or not self.max_path_algorithm.waiting_for_end:
             self.graph_widget.dijkstra_start_vertex = vertex
             self.graph_widget.dijkstra_end_vertex = None
             self.graph_widget.update()
             self.animation_timer = QTimer()
             self.animation_timer.timeout.connect(lambda: self._algorithm_step(self.max_path_algorithm))
-            self.current_algorithm = self.max_path_algorithm
-            _, _, _, highlight_key = self.max_path_algorithm.start(vertex)
-            self.show_algorithm_pseudocode(self.max_path_algorithm, highlight_key=highlight_key)
+            result = self.max_path_algorithm.start(vertex)
+            if isinstance(result, tuple):
+                message = result[1] if len(result) > 1 else str(result[0])
+                highlight_key = result[3] if len(result) > 3 else None
+            else:
+                message = str(result)
+                highlight_key = None
+            self.algorithm_step_label.setText(str(message))
+            if highlight_key:
+                highlight_map = self.max_path_algorithm.get_highlight_map()
+                if highlight_key in highlight_map:
+                    self.highlight_pseudocode_line(highlight_map[highlight_key])
             speed_multipliers = {0: 0.25, 1: 0.5, 2: 1.0, 3: 2.0, 4: 4.0}
             current_multiplier = speed_multipliers[self.speed_slider.value()]
             self.current_delay = int(1000 / current_multiplier)
@@ -1185,7 +1277,17 @@ path = {path}"""
         else:
             self.graph_widget.dijkstra_end_vertex = vertex
             self.graph_widget.update()
-            _, _, _, highlight_key = self.max_path_algorithm.set_end_vertex(vertex)
-            self.show_algorithm_pseudocode(self.max_path_algorithm, highlight_key=highlight_key)
+            result = self.max_path_algorithm.set_end_vertex(vertex)
+            if isinstance(result, tuple):
+                message = result[1] if len(result) > 1 else str(result[0])
+                highlight_key = result[3] if len(result) > 3 else None
+            else:
+                message = str(result)
+                highlight_key = None
+            self.algorithm_step_label.setText(str(message))
+            if highlight_key:
+                highlight_map = self.max_path_algorithm.get_highlight_map()
+                if highlight_key in highlight_map:
+                    self.highlight_pseudocode_line(highlight_map[highlight_key])
             self.animation_timer.setInterval(self.current_delay)
             self.animation_timer.start() 

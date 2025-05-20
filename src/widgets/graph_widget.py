@@ -387,7 +387,11 @@ class GraphWidget(QWidget):
             if vertex == self.bfs_current:
                 painter.setBrush(palette.highlight().color())
             elif vertex in self.visited_vertices:
-                painter.setBrush(palette.alternateBase().color())
+                # Эффект свечения: полупрозрачный круг большего радиуса
+                glow_color = QColor(0, 180, 0, 100)  # зелёный с alpha
+                painter.setPen(Qt.NoPen)
+                painter.setBrush(glow_color)
+                painter.drawEllipse(pos, 20 + 10, 20 + 10)
             else:
                 painter.setBrush(palette.base().color())
         painter.drawEllipse(pos, 20, 20)
