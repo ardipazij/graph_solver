@@ -520,7 +520,10 @@ class GraphWidget(QWidget):
 
     def _update_edge_weight(self):
         """Обновляет вес существующего ребра"""
-        current_weight = self.graph[self.edge_start][self.selected_vertex].get('weight', 1.0)
+        if self.graph.has_edge(self.edge_start, self.selected_vertex):
+            current_weight = self.graph[self.edge_start][self.selected_vertex].get('weight', 1.0)
+        else:
+            current_weight = 1.0
         weight, ok = QInputDialog.getDouble(
             self, 'Редактировать вес ребра', 'Введите новый вес ребра:',
             current_weight, -1000.0, 1000.0, 2

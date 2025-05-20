@@ -1063,6 +1063,44 @@ class MaxPathAlgorithm(GraphAlgorithm):
         return "Поиск самого длинного простого пути между двумя вершинами (экспоненциальный перебор, как в graphonline)."
 
 class KruskalAlgorithm(GraphAlgorithm):
+    def __init__(self, main_window):
+        super().__init__(main_window)
+        self.edges_sorted = []
+        self.parent = {}
+        self.rank = {}
+        self.mst_edges = []
+        self.edge_idx = 0
+
+    def reset(self):
+        super().reset()
+        self.edges_sorted = []
+        self.parent = {}
+        self.rank = {}
+        self.mst_edges = []
+        self.edge_idx = 0
+        self.main_window.graph_widget.bfs_path = []
+        self.main_window.graph_widget.bfs_current_edge = None
+        self.main_window.graph_widget.bfs_current = None
+        self.main_window.graph_widget.update()
+
+    def find(self, v):
+        if self.parent[v] != v:
+            self.parent[v] = self.find(self.parent[v])
+        return self.parent[v]
+
+    def union(self, u, v):
+        root_u = self.find(u)
+        root_v = self.find(v)
+        if root_u == root_v:
+            return False
+        if self.rank[root_u] < self.rank[root_v]:
+            self.parent[root_u] = root_v
+        else:
+            self.parent[root_v] = root_u
+            if self.rank[root_u] == self.rank[root_v]:
+                self.rank[root_u] += 1
+        return True
+
     def get_pseudocode(self):
         return [
             "1. edges = отсортировать_по_весу(ребра)",
@@ -1080,11 +1118,62 @@ class KruskalAlgorithm(GraphAlgorithm):
         return {
             'init': 0,
             'main_loop': 4,
-            'finish': 3
+            'finish': 9
         }
 
     def get_name(self):
         return "Kruskal (алгоритм Краскала)"
 
     def get_description(self):
-        return "Алгоритм Краскала — эффективный способ поиска минимального остовного дерева в графе." 
+        return "Алгоритм Краскала — эффективный способ поиска минимального остовного дерева в графе."
+
+    def start(self):
+        self.reset()
+        graph = self.main_window.graph_widget.graph
+        self.edges_sorted = sorted(graph.edges(data=True), key=lambda e: e[2].get('weight', 1))
+        for v in graph.nodes():
+            self.parent[v] = v
+            self.rank[v] = 0
+        self.edge_idx = 0
+        self.mst_edges = []
+        self.main_window.graph_widget.bfs_path = []
+        self.main_window.graph_widget.bfs_current_edge = None
+        self.main_window.graph_widget.bfs_current = None
+        self.main_window.graph_widget.update()
+        return False, "Начинаем алгоритм Краскала", self._get_state(), 'init'
+
+    def next_step(self):
+        if len(self.mst_edges) == len(self.parent) - 1:
+            self.main_window.graph_widget.bfs_path = self.mst_edges
+            self.main_window.graph_widget.bfs_current_edge = None
+            self.main_window.graph_widget.bfs_current = None
+            self.main_window.graph_widget.update()
+            return True, "Построено минимальное остовное дерево!", self._get_state(), 'finish'
+        if self.edge_idx >= len(self.edges_sorted):
+            self.main_window.graph_widget.bfs_path = self.mst_edges
+            self.main_window.graph_widget.bfs_current_edge = None
+            self.main_window.graph_widget.bfs_current = None
+            self.main_window.graph_widget.update()
+            return True, "Рёбра закончились, остов построен!", self._get_state(), 'finish'
+        u, v, data = self.edges_sorted[self.edge_idx]
+        self.main_window.graph_widget.bfs_current_edge = (u, v)
+        self.main_window.graph_widget.bfs_current = u
+        self.main_window.graph_widget.update()
+        self.edge_idx += 1
+        if self.find(u) != self.find(v):
+            self.union(u, v)
+            self.mst_edges.append((u, v))
+            self.main_window.graph_widget.bfs_path = self.mst_edges
+            self.main_window.graph_widget.update()
+            message = f"Добавили ребро ({u}, {v}) в остов"
+        else:
+            message = f"Пропустили ребро ({u}, {v}), чтобы не образовать цикл"
+        return False, message, self._get_state(), 'main_loop'
+
+    def _get_state(self):
+        return {
+            'mst_edges': self.mst_edges,
+            'parent': self.parent.copy(),
+            'edge_idx': self.edge_idx,
+            'edges_sorted': [(u, v, d.get('weight', 1)) for u, v, d in self.edges_sorted]
+        } 
