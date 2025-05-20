@@ -360,6 +360,7 @@ class MainWindow(QMainWindow):
     def load_graph_from_file(self):
         """Загружает граф из файла"""
         try:
+            self.stop_animation()
             self.graph_widget.reset_visual_state()
             self.variables_widget.clear()
             self.pseudocode_widget.clear()
@@ -458,6 +459,10 @@ class MainWindow(QMainWindow):
     def apply_matrix(self):
         """Применяет введенную матрицу для создания графа"""
         try:
+            self.stop_animation()
+            self.graph_widget.reset_visual_state()
+            self.variables_widget.clear()
+            self.pseudocode_widget.clear()
             matrix = parse_matrix(self.matrix_input.toPlainText())
             if self.incidence_matrix_btn.isChecked():
                 graph = create_graph_from_incidence_matrix(
@@ -516,6 +521,11 @@ class MainWindow(QMainWindow):
             self.graph_widget.start_adding_vertex()
         else:
             self.graph_widget.stop_adding()
+        # Сброс состояния
+        self.stop_animation()
+        self.graph_widget.reset_visual_state()
+        self.variables_widget.clear()
+        self.pseudocode_widget.clear()
 
     def start_adding_edge(self):
         """Включает режим добавления ребра"""
@@ -524,6 +534,11 @@ class MainWindow(QMainWindow):
             self.graph_widget.start_adding_edge()
         else:
             self.graph_widget.stop_adding()
+        # Сброс состояния
+        self.stop_animation()
+        self.graph_widget.reset_visual_state()
+        self.variables_widget.clear()
+        self.pseudocode_widget.clear()
 
     def on_directed_changed(self):
         """Обработчик изменения типа графа (ориентированный/неориентированный)"""
@@ -544,7 +559,10 @@ class MainWindow(QMainWindow):
 
     def on_weighted_changed(self):
         """Обработчик изменения типа графа (взвешенный/невзвешенный)"""
-        self.stop_animation()  # Останавливаем алгоритм при смене типа графа
+        self.stop_animation()
+        self.graph_widget.reset_visual_state()
+        self.variables_widget.clear()
+        self.pseudocode_widget.clear()  # Останавливаем алгоритм при смене типа графа
         if self.graph_widget.graph.number_of_edges() > 0:
             if isinstance(self.graph_widget.graph, nx.DiGraph):
                 new_graph = nx.DiGraph()
