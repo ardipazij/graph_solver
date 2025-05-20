@@ -952,11 +952,35 @@ class MainWindow(QMainWindow):
         self.help_panel.setVisible(not is_visible)
 
     def generate_random_graph(self):
-        """Генерирует случайный граф"""
+        """Генерирует случайный граф и сбрасывает все состояния, как при запуске"""
         try:
             self.graph_widget.reset_visual_state()
             self.variables_widget.clear()
             self.pseudocode_widget.clear()
+            self.explanation_widget.clear()
+            self.graph_widget.kruskal_total_weight = None
+            self.graph_widget.kruskal_sets = {}
+            self.graph_widget.distances = {}
+            self.graph_widget.comparison_text = {}
+            self.graph_widget.dijkstra_start_vertex = None
+            self.graph_widget.dijkstra_end_vertex = None
+            self.graph_widget.bfs_path = []
+            self.graph_widget.bfs_current = None
+            self.graph_widget.bfs_current_edge = None
+            self.graph_widget.visited_vertices = set()
+            self.graph_widget.update()
+            self.current_algorithm = None
+            self.algorithm_step_label.clear()
+            self.algorithm_step_label.setVisible(False)
+            self.pseudocode_widget.setVisible(False)
+            self.variables_widget.setVisible(False)
+            self.explanation_widget.setVisible(True)
+            self.pause_btn.setChecked(False)
+            self.is_paused = False
+            if hasattr(self, 'animation_timer') and self.animation_timer.isActive():
+                self.animation_timer.stop()
+            if hasattr(self, 'timer') and self.timer.isActive():
+                self.timer.stop()
             # Диалог для ввода параметров
             num_vertices, ok = QInputDialog.getInt(
                 self,
@@ -1152,7 +1176,30 @@ edges_sorted = {edges_sorted}  # отсортированные рёбра"""
         self.graph_widget.reset_visual_state()
         self.variables_widget.clear()
         self.pseudocode_widget.clear()
-        self.graph_widget.update() 
+        self.explanation_widget.clear()
+        self.graph_widget.kruskal_total_weight = None
+        self.graph_widget.kruskal_sets = {}
+        self.graph_widget.distances = {}
+        self.graph_widget.comparison_text = {}
+        self.graph_widget.dijkstra_start_vertex = None
+        self.graph_widget.dijkstra_end_vertex = None
+        self.graph_widget.bfs_path = []
+        self.graph_widget.bfs_current = None
+        self.graph_widget.bfs_current_edge = None
+        self.graph_widget.visited_vertices = set()
+        self.graph_widget.update()
+        self.current_algorithm = None
+        self.algorithm_step_label.clear()
+        self.algorithm_step_label.setVisible(False)
+        self.pseudocode_widget.setVisible(False)
+        self.variables_widget.setVisible(False)
+        self.explanation_widget.setVisible(True)
+        self.pause_btn.setChecked(False)
+        self.is_paused = False
+        if hasattr(self, 'animation_timer') and self.animation_timer.isActive():
+            self.animation_timer.stop()
+        if hasattr(self, 'timer') and self.timer.isActive():
+            self.timer.stop()
 
     def toggle_pseudocode_panel(self):
         """Скрывает или показывает панель работы алгоритма (псевдокод и переменные)"""
