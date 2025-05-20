@@ -1216,4 +1216,121 @@ class KruskalAlgorithm(GraphAlgorithm):
             'parent': self.parent.copy(),
             'edge_idx': self.edge_idx,
             'edges_sorted': [(u, v, d.get('weight', 1)) for u, v, d in self.edges_sorted]
+        }
+
+class PrimAlgorithm(GraphAlgorithm):
+    """Пошаговая визуализация алгоритма Прима (минимальное остовное дерево)"""
+    def __init__(self, main_window):
+        super().__init__(main_window)
+        self.in_tree = set()
+        self.edges_in_tree = []
+        self.candidates = []
+        self.current_edge = None
+        self.step = 0
+        self.finished = False
+
+    def reset(self):
+        super().reset()
+        self.in_tree = set()
+        self.edges_in_tree = []
+        self.candidates = []
+        self.current_edge = None
+        self.step = 0
+        self.finished = False
+        self.main_window.graph_widget.bfs_path = []
+        self.main_window.graph_widget.bfs_current_edge = None
+        self.main_window.graph_widget.bfs_current = None
+        self.main_window.graph_widget.update()
+
+    def get_pseudocode(self):
+        return [
+            "1. Выбрать произвольную вершину v₀, добавить в дерево:",
+            "   V_T = {v₀}, X_T = ∅",
+            "2. Пока V_T ≠ V:",
+            "   Найти кратчайшее ребро {u, v}, где u ∈ V_T, v ∉ V_T",
+            "   Добавить v в V_T, ребро {u, v} в X_T",
+            "3. Если V_T = V, то T = (V_T, X_T) — минимальное покрывающее дерево"
+        ]
+
+    def get_highlight_map(self):
+        return {
+            'init': 0,
+            'main_loop': 2,
+            'add_edge': 4,
+            'finish': 6
+        }
+
+    def get_name(self):
+        return "Prim (алгоритм Прима)"
+
+    def get_description(self):
+        return "Алгоритм Прима — эффективный способ поэтапного построения минимального остовного дерева."
+
+    def start(self, start_vertex=None):
+        self.reset()
+        graph = self.main_window.graph_widget.graph
+        vertices = list(graph.nodes())
+        if not vertices:
+            return True, "Граф пуст", self._get_state(), 'finish'
+        if start_vertex is None:
+            start_vertex = vertices[0]
+        self.in_tree = {start_vertex}
+        self.edges_in_tree = []
+        self.candidates = []
+        self.current_edge = None
+        self.step = 0
+        self.finished = False
+        self.main_window.graph_widget.visited_vertices = set(self.in_tree)
+        self.main_window.graph_widget.bfs_path = []
+        self.main_window.graph_widget.bfs_current = start_vertex
+        self.main_window.graph_widget.bfs_current_edge = None
+        self.main_window.graph_widget.update()
+        return False, f"Начинаем с вершины {start_vertex}", self._get_state(), 'init'
+
+    def next_step(self):
+        if self.finished:
+            return True, "Построено минимальное остовное дерево!", self._get_state(), 'finish'
+        graph = self.main_window.graph_widget.graph
+        if len(self.in_tree) == len(graph.nodes()):
+            self.finished = True
+            self.main_window.graph_widget.bfs_path = self.edges_in_tree
+            self.main_window.graph_widget.bfs_current_edge = None
+            self.main_window.graph_widget.bfs_current = None
+            self.main_window.graph_widget.update()
+            total_weight = sum(graph[u][v].get('weight', 1) for u, v in self.edges_in_tree)
+            msg = f"Построено минимальное остовное дерево!\nВес остова: {total_weight}"
+            return True, msg, self._get_state(), 'finish'
+        # Находим все рёбра, ведущие из дерева наружу
+        candidates = []
+        for u in self.in_tree:
+            for v in graph.neighbors(u):
+                if v not in self.in_tree:
+                    weight = graph[u][v].get('weight', 1)
+                    candidates.append((weight, u, v))
+        if not candidates:
+            self.finished = True
+            return True, "Граф несвязный — остов не построен", self._get_state(), 'finish'
+        # Выбираем минимальное ребро
+        candidates.sort()
+        weight, u, v = candidates[0]
+        self.current_edge = (u, v)
+        self.candidates = candidates
+        self.main_window.graph_widget.bfs_current_edge = (u, v)
+        self.main_window.graph_widget.bfs_current = v
+        self.main_window.graph_widget.update()
+        # Добавляем вершину и ребро в дерево
+        self.in_tree.add(v)
+        self.edges_in_tree.append((u, v))
+        self.main_window.graph_widget.visited_vertices = set(self.in_tree)
+        self.main_window.graph_widget.bfs_path = self.edges_in_tree
+        self.main_window.graph_widget.update()
+        msg = f"Добавили ребро ({u}, {v}) с весом {weight} в остов"
+        return False, msg, self._get_state(), 'add_edge'
+
+    def _get_state(self):
+        return {
+            'in_tree': set(self.in_tree),
+            'edges_in_tree': list(self.edges_in_tree),
+            'candidates': list(self.candidates),
+            'current_edge': self.current_edge
         } 

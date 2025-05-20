@@ -11,7 +11,7 @@ from PySide6.QtGui import QFontMetrics, QFont
 import networkx as nx
 
 from widgets.graph_widget import GraphWidget
-from algorithms.graph_algorithms import BFSAlgorithm, DFSAlgorithm, DijkstraAlgorithm, BellmanFordAlgorithm, MaxPathAlgorithm, KruskalAlgorithm
+from algorithms.graph_algorithms import BFSAlgorithm, DFSAlgorithm, DijkstraAlgorithm, BellmanFordAlgorithm, MaxPathAlgorithm, KruskalAlgorithm, PrimAlgorithm
 from utils.graph_utils import (load_graph_from_file, save_graph_to_file,
                            parse_matrix, create_graph_from_adjacency_matrix,
                            create_graph_from_incidence_matrix, is_weighted,
@@ -38,6 +38,7 @@ class MainWindow(QMainWindow):
         self.bellman_ford_algorithm = BellmanFordAlgorithm(self)
         self.max_path_algorithm = MaxPathAlgorithm(self)
         self.kruskal_algorithm = KruskalAlgorithm(self)
+        self.prim_algorithm = PrimAlgorithm(self)
         
         # Инициализация состояния
         self.is_paused = False
@@ -126,6 +127,7 @@ class MainWindow(QMainWindow):
         self.bellman_ford_action = self.algorithms_menu.addAction("Беллман-Форд (кратчайший путь)")
         self.max_path_action = self.algorithms_menu.addAction("MaxPath (максимальный путь)")
         self.kruskal_action = self.algorithms_menu.addAction("Kruskal (минимальный остов)")
+        self.prim_action = self.algorithms_menu.addAction("Prim (минимальный остов)")
         self.algorithms_btn.setMenu(self.algorithms_menu)
         
         # Создаем кнопку с выпадающим меню для выбора размещения
@@ -342,6 +344,7 @@ class MainWindow(QMainWindow):
         self.bellman_ford_action.triggered.connect(self.start_bellman_ford)
         self.max_path_action.triggered.connect(self.start_max_path)
         self.kruskal_action.triggered.connect(self.start_kruskal)
+        self.prim_action.triggered.connect(self.start_prim)
         self.directed_checkbox.stateChanged.connect(self.on_directed_changed)
         self.weighted_checkbox.stateChanged.connect(self.on_weighted_changed)
         self.speed_slider.valueChanged.connect(self.on_speed_changed)
@@ -590,6 +593,7 @@ class MainWindow(QMainWindow):
             'bellman_ford': '''Алгоритм Беллмана-Форда:\n1. Инициализация:\n   distances = {v: ∞ для всех вершин v}  // расстояния до вершин\n   previous = {v: null для всех вершин v} // предыдущие вершины\n   distances[start] = 0                   // расстояние до начальной вершины\n   path = []                             // путь до конечной вершины\n\n2. Основной цикл (V-1 раз):\n   Для каждого ребра (u,v) с весом w:\n       Если distances[u] + w < distances[v]:\n           distances[v] = distances[u] + w  // обновляем расстояние\n           previous[v] = u                  // запоминаем предыдущую вершину\n\n3. Проверка на отрицательные циклы:\n   Для каждого ребра (u,v) с весом w:\n       Если distances[u] + w < distances[v]:\n           Найден отрицательный цикл\n           Выход с ошибкой\n\n4. Восстановление пути:\n   Если previous[end] не null:\n       current = end\n       Пока current не null:\n           path.append(current)\n           current = previous[current]\n       path.reverse()\n\n5. Завершение:\n   Возвращаем distances[end], path''',
             'MaxPath': "\n".join(self.max_path_algorithm.get_pseudocode()),
             'Kruskal': "\n".join(self.kruskal_algorithm.get_pseudocode()),
+            'Prim': "\n".join(self.prim_algorithm.get_pseudocode()),
         }
         if algorithm in pseudocodes:
             self.pseudocode_widget.setPlainText(pseudocodes[algorithm])
@@ -1147,6 +1151,17 @@ parent = {parent}  # представление компонент (букето
 edge_idx = {edge_idx}  # индекс текущего ребра
 edges_sorted = {edges_sorted}  # отсортированные рёбра"""
             
+        elif algorithm == 'Prim':
+            in_tree = state.get('in_tree', set())
+            edges_in_tree = state.get('edges_in_tree', [])
+            candidates = state.get('candidates', [])
+            current_edge = state.get('current_edge', None)
+            text = f"""Состояние переменных:
+in_tree = {sorted(list(in_tree))}  # вершины в остове
+edges_in_tree = {edges_in_tree}  # рёбра остова
+candidates = {candidates}  # кандидаты на добавление
+current_edge = {current_edge}  # текущее выбранное ребро"""
+            
         else:
             text = ""
         self.variables_widget.setPlainText(text)
@@ -1358,6 +1373,40 @@ edges_sorted = {edges_sorted}  # отсортированные рёбра"""
         self.explanation_widget.append(str(message))
         if highlight_key:
             highlight_map = self.kruskal_algorithm.get_highlight_map()
+            if highlight_key in highlight_map:
+                self.highlight_pseudocode_line(highlight_map[highlight_key])
+        speed_multipliers = {0: 0.25, 1: 0.5, 2: 1.0, 3: 2.0, 4: 4.0}
+        current_multiplier = speed_multipliers[self.speed_slider.value()]
+        self.current_delay = int(1000 / current_multiplier)
+        self.pause_btn.setChecked(False)
+        self.pause_btn.setText("⏸")
+        self.is_paused = False
+        self.animation_timer.setInterval(self.current_delay)
+        self.animation_timer.start() 
+
+    def start_prim(self):
+        self.stop_animation()
+        self.graph_widget.reset_visual_state()
+        self.variables_widget.clear()
+        self.pseudocode_widget.clear()
+        if not self.graph_widget.graph.nodes():
+            QMessageBox.warning(self, "Ошибка", "Граф пуст")
+            return
+        self.show_pseudocode('Prim')
+        self.current_algorithm = 'Prim'
+        self.animation_timer = QTimer()
+        self.animation_timer.timeout.connect(lambda: self._algorithm_step(self.prim_algorithm))
+        result = self.prim_algorithm.start()
+        if isinstance(result, tuple):
+            message = result[1] if len(result) > 1 else str(result[0])
+            highlight_key = result[3] if len(result) > 3 else None
+        else:
+            message = str(result)
+            highlight_key = None
+        self.algorithm_step_label.setText(str(message))
+        self.explanation_widget.append(str(message))
+        if highlight_key:
+            highlight_map = self.prim_algorithm.get_highlight_map()
             if highlight_key in highlight_map:
                 self.highlight_pseudocode_line(highlight_map[highlight_key])
         speed_multipliers = {0: 0.25, 1: 0.5, 2: 1.0, 3: 2.0, 4: 4.0}
