@@ -193,6 +193,7 @@ class DFSAlgorithm(GraphAlgorithm):
         self.last_backtrack = False
         self.visited = set()
         self.path = []  # для хранения рёбер обхода
+        self._dfs_neighbor_idx = {}  # для хранения индекса соседа для каждой вершины
 
     def reset(self):
         super().reset()
@@ -204,6 +205,7 @@ class DFSAlgorithm(GraphAlgorithm):
         self.last_backtrack = False
         self.visited = set()
         self.path = []
+        self._dfs_neighbor_idx = {}  # для хранения индекса соседа для каждой вершины
         self.main_window.graph_widget.bfs_path = []
         self.main_window.graph_widget.bfs_current = None
         self.main_window.graph_widget.bfs_current_edge = None
@@ -212,7 +214,7 @@ class DFSAlgorithm(GraphAlgorithm):
 
     def start(self, start_vertex):
         self.reset()
-        self.stack = [(start_vertex, [start_vertex], set([start_vertex]))]  # (vertex, path, visited)
+        self.stack = [(start_vertex, [start_vertex])]  # (vertex, path)
         self.current = start_vertex
         self.current_path = [start_vertex]
         self.main_window.graph_widget.bfs_current = start_vertex
@@ -235,39 +237,38 @@ class DFSAlgorithm(GraphAlgorithm):
             self.main_window.graph_widget.update()
             self.last_backtrack = False
 
-        vertex, path, visited = self.stack[-1]
+        vertex, path = self.stack[-1]
         self.current = vertex
         self.current_path = path
         self.main_window.graph_widget.bfs_current = vertex
         self.main_window.graph_widget.bfs_path = [(path[i], path[i+1]) for i in range(len(path)-1)]
 
-        # Глобальная проверка посещённости
-        if vertex in self.visited:
-            self.stack.pop()
-            self.last_backtrack = True
-            explanation = f"Вершина {vertex} уже была посещена (глобально), возврат назад"
-            self.main_window.explanation_widget.append(explanation)
-            return False, explanation, self._get_state(), 'backtrack'
-
-        self.visited.add(vertex)
-        self.main_window.graph_widget.visited_vertices = set(self.visited)
-        explanation = f"Обрабатываем вершину {vertex}"
+        if vertex not in self.visited:
+            self.visited.add(vertex)
+            self.main_window.graph_widget.visited_vertices = set(self.visited)
+            explanation = f"Обрабатываем вершину {vertex}"
+        else:
+            explanation = None
 
         neighbors = list(self.main_window.graph_widget.graph.neighbors(vertex))
-        for neighbor in neighbors:
+        idx = self._dfs_neighbor_idx.get(vertex, 0)
+        while idx < len(neighbors):
+            neighbor = neighbors[idx]
+            self._dfs_neighbor_idx[vertex] = idx + 1
             if neighbor not in self.visited:
                 self.main_window.graph_widget.bfs_current_edge = (vertex, neighbor)
                 self.main_window.graph_widget.update()
                 new_path = path + [neighbor]
-                new_visited = set(visited)
-                new_visited.add(neighbor)
-                self.stack.append((neighbor, new_path, new_visited))
+                self.stack.append((neighbor, new_path))
                 self.parent[neighbor] = vertex
-                self.path.append((vertex, neighbor))  # сохраняем ребро обхода
+                self.path.append((vertex, neighbor))
                 explanation = f"Переходим по ребру ({vertex}, {neighbor})"
                 self.last_backtrack = False
                 self.main_window.explanation_widget.append(explanation)
                 return False, explanation, self._get_state(), 'neighbor_loop'
+            idx += 1
+
+        # Если все соседи просмотрены
         self.stack.pop()
         self.last_backtrack = True
         if len(path) > 1:
@@ -280,7 +281,7 @@ class DFSAlgorithm(GraphAlgorithm):
     def _get_state(self):
         return {
             'current_path': self.current_path,
-            'stack': [v for v, _, _ in self.stack],
+            'stack': [v for v, _ in self.stack],
             'visited': list(self.visited),
             'parent': self.parent,
             'paths_checked': self.paths_checked
