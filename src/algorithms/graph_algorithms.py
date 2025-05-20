@@ -25,6 +25,23 @@ class GraphAlgorithm:
         self.main_window.graph_widget.bfs_current_edge = None
         self.main_window.graph_widget.visited_vertices.clear()
         self.main_window.graph_widget.bfs_current = None
+
+    def get_pseudocode(self):
+        """Возвращает псевдокод алгоритма (список строк)"""
+        raise NotImplementedError
+
+    def get_highlight_map(self):
+        """Возвращает словарь: этап -> номер строки псевдокода"""
+        raise NotImplementedError
+
+    def get_name(self):
+        """Возвращает название алгоритма"""
+        return self.__class__.__name__
+
+    def get_description(self):
+        """Возвращает краткое описание алгоритма"""
+        return ""
+
     def start(self):
         pass
     def next_step(self):
@@ -42,6 +59,52 @@ class BFSAlgorithm(GraphAlgorithm):
         self.current_vertex = None
         self.current_neighbor = None
         self.step = 0
+
+    def get_pseudocode(self):
+        return [
+            "1. Инициализация:",
+            "   visited = ∅        // множество посещенных вершин",
+            "   queue = [start]    // очередь вершин для обработки",
+            "   result = []        // результат обхода",
+            "   parent = {}        // словарь для хранения родительских вершин",
+            "",
+            "2. Основной цикл:",
+            "   Пока queue не пуста:",
+            "       vertex = queue.pop(0)    // берем первую вершину из очереди",
+            "       result.append(vertex)    // добавляем в результат",
+            "       visited.add(vertex)      // помечаем как посещенную",
+            "",
+            "       // Обработка соседей:",
+            "       Для каждого соседа neighbor вершины vertex:",
+            "           Если neighbor не посещен:",
+            "               visited.add(neighbor)    // помечаем как посещенного",
+            "               queue.append(neighbor)    // добавляем в очередь",
+            "               parent[neighbor] = vertex // запоминаем родителя",
+            "",
+            "3. Завершение:",
+            "   Возвращаем result, parent"
+        ]
+
+    def get_highlight_map(self):
+        return {
+            'init': 0,
+            'main_loop': 6,
+            'pop_vertex': 8,
+            'append_result': 9,
+            'add_visited': 10,
+            'neighbor_loop': 12,
+            'neighbor_check': 13,
+            'add_neighbor_visited': 14,
+            'add_neighbor_queue': 15,
+            'set_parent': 16,
+            'finish': 18
+        }
+
+    def get_name(self):
+        return "BFS (поиск в ширину)"
+
+    def get_description(self):
+        return "Алгоритм поиска в ширину (Breadth-First Search) — находит кратчайшие пути в невзвешенном графе."
 
     def start(self, start_vertex):
         """Запускает алгоритм BFS"""
