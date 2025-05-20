@@ -527,6 +527,10 @@ class MainWindow(QMainWindow):
 
     def on_directed_changed(self):
         """Обработчик изменения типа графа (ориентированный/неориентированный)"""
+        self.stop_animation()
+        self.graph_widget.reset_visual_state()
+        self.variables_widget.clear()
+        self.pseudocode_widget.clear()  # Останавливаем алгоритм при смене типа графа
         if self.graph_widget.graph.number_of_edges() > 0:
             if self.directed_checkbox.isChecked():
                 new_graph = nx.DiGraph()
@@ -540,6 +544,7 @@ class MainWindow(QMainWindow):
 
     def on_weighted_changed(self):
         """Обработчик изменения типа графа (взвешенный/невзвешенный)"""
+        self.stop_animation()  # Останавливаем алгоритм при смене типа графа
         if self.graph_widget.graph.number_of_edges() > 0:
             if isinstance(self.graph_widget.graph, nx.DiGraph):
                 new_graph = nx.DiGraph()
@@ -952,35 +957,12 @@ class MainWindow(QMainWindow):
         self.help_panel.setVisible(not is_visible)
 
     def generate_random_graph(self):
-        """Генерирует случайный граф и сбрасывает все состояния, как при запуске"""
+        """Генерирует случайный граф"""
         try:
+            self.stop_animation()  # Останавливаем алгоритм при генерации
             self.graph_widget.reset_visual_state()
             self.variables_widget.clear()
             self.pseudocode_widget.clear()
-            self.explanation_widget.clear()
-            self.graph_widget.kruskal_total_weight = None
-            self.graph_widget.kruskal_sets = {}
-            self.graph_widget.distances = {}
-            self.graph_widget.comparison_text = {}
-            self.graph_widget.dijkstra_start_vertex = None
-            self.graph_widget.dijkstra_end_vertex = None
-            self.graph_widget.bfs_path = []
-            self.graph_widget.bfs_current = None
-            self.graph_widget.bfs_current_edge = None
-            self.graph_widget.visited_vertices = set()
-            self.graph_widget.update()
-            self.current_algorithm = None
-            self.algorithm_step_label.clear()
-            self.algorithm_step_label.setVisible(False)
-            self.pseudocode_widget.setVisible(False)
-            self.variables_widget.setVisible(False)
-            self.explanation_widget.setVisible(True)
-            self.pause_btn.setChecked(False)
-            self.is_paused = False
-            if hasattr(self, 'animation_timer') and self.animation_timer.isActive():
-                self.animation_timer.stop()
-            if hasattr(self, 'timer') and self.timer.isActive():
-                self.timer.stop()
             # Диалог для ввода параметров
             num_vertices, ok = QInputDialog.getInt(
                 self,
@@ -1171,35 +1153,13 @@ edges_sorted = {edges_sorted}  # отсортированные рёбра"""
 
     def clear_graph(self):
         """Очищает граф и сбрасывает все визуальные состояния"""
+        self.stop_animation()  # Останавливаем алгоритм при очистке
         self.graph_widget.graph.clear()
         self.graph_widget.vertex_positions.clear()
         self.graph_widget.reset_visual_state()
         self.variables_widget.clear()
         self.pseudocode_widget.clear()
-        self.explanation_widget.clear()
-        self.graph_widget.kruskal_total_weight = None
-        self.graph_widget.kruskal_sets = {}
-        self.graph_widget.distances = {}
-        self.graph_widget.comparison_text = {}
-        self.graph_widget.dijkstra_start_vertex = None
-        self.graph_widget.dijkstra_end_vertex = None
-        self.graph_widget.bfs_path = []
-        self.graph_widget.bfs_current = None
-        self.graph_widget.bfs_current_edge = None
-        self.graph_widget.visited_vertices = set()
-        self.graph_widget.update()
-        self.current_algorithm = None
-        self.algorithm_step_label.clear()
-        self.algorithm_step_label.setVisible(False)
-        self.pseudocode_widget.setVisible(False)
-        self.variables_widget.setVisible(False)
-        self.explanation_widget.setVisible(True)
-        self.pause_btn.setChecked(False)
-        self.is_paused = False
-        if hasattr(self, 'animation_timer') and self.animation_timer.isActive():
-            self.animation_timer.stop()
-        if hasattr(self, 'timer') and self.timer.isActive():
-            self.timer.stop()
+        self.graph_widget.update() 
 
     def toggle_pseudocode_panel(self):
         """Скрывает или показывает панель работы алгоритма (псевдокод и переменные)"""

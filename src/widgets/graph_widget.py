@@ -615,8 +615,7 @@ class GraphWidget(QWidget):
         self.bfs_current_edge = None
         self.distances = {}
         self.comparison_text = {}
+        # Сброс выделения начальной/конечной вершины
         self.dijkstra_start_vertex = None
         self.dijkstra_end_vertex = None
-        self.kruskal_total_weight = None
-        self.kruskal_sets = {}
         self.update() 
