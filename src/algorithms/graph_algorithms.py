@@ -776,7 +776,7 @@ class BellmanFordAlgorithm(GraphAlgorithm):
         path.reverse()
         if path and path[0] == self.start_vertex:
             return path
-        return []  # Если обнаружен цикл
+        return []
 
     def _get_state(self):
         """Возвращает текущее состояние алгоритма"""
@@ -903,16 +903,6 @@ class MaxPathAlgorithm(GraphAlgorithm):
         self.current_neighbors = sorted(list(self.main_window.graph_widget.graph.neighbors(max_vertex)))
         self.iteration += 1
         
-        # Обновляем информацию в variables_widget
-        variables = {
-            'Текущая вершина': max_vertex,
-            'Расстояние': self.distances[max_vertex] if self.distances[max_vertex] != float('-inf') else '-∞',
-            'Непосещенные вершины': len(self.unvisited),
-            'Посещенные вершины': len(self.visited),
-            'Итерация': f"{self.iteration}/{self.max_iterations}"
-        }
-        self.main_window.variables_widget.update_variables(variables)
-        
         message = f"Обрабатываем вершину {max_vertex} (расстояние: {self.distances[max_vertex] if self.distances[max_vertex] != float('-inf') else '-∞'})"
         self.main_window.explanation_widget.append(message)
         self.main_window.graph_widget.update()
@@ -961,17 +951,6 @@ class MaxPathAlgorithm(GraphAlgorithm):
         else:
             message.append(f"Оставляем текущее расстояние: {self.distances[self.current_neighbor] if self.distances[self.current_neighbor] != float('-inf') else '-∞'}")
             self.main_window.graph_widget.update()
-
-        # Обновляем информацию в variables_widget
-        variables = {
-            'Текущая вершина': self.current_vertex,
-            'Соседняя вершина': self.current_neighbor,
-            'Текущее расстояние': current_dist_str,
-            'Новое расстояние': neighbor_dist_str,
-            'Итерация': f"{self.iteration}/{self.max_iterations}"
-        }
-        self.main_window.variables_widget.update_variables(variables)
-
         self.comparison_text = {}
         self.main_window.graph_widget.comparison_text = {}
         self.comparison_step = False
@@ -1011,15 +990,6 @@ class MaxPathAlgorithm(GraphAlgorithm):
                 distance = self.distances[self.end_vertex]
                 path_str = " → ".join(map(str, self.shortest_path))
                 message = f"Найден максимальный путь длиной {distance}:\n{path_str}"
-
-            # Обновляем информацию в variables_widget
-            variables = {
-                'Конечная вершина': self.end_vertex,
-                'Длина пути': distance if distance != float('-inf') else '-∞',
-                'Путь': path_str if self.shortest_path else 'Не найден',
-                'Итерация': f"{self.iteration}/{self.max_iterations}"
-            }
-            self.main_window.variables_widget.update_variables(variables)
             
             self.main_window.graph_widget.bfs_current = None
             self.main_window.graph_widget.bfs_current_edge = None
