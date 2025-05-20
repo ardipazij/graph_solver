@@ -559,7 +559,7 @@ class MainWindow(QMainWindow):
         self.pseudocode_container.setVisible(True)
         pseudocodes = {
             'BFS': '''Алгоритм BFS (поиск в ширину):\n1. Инициализация:\n   visited = ∅        // множество посещенных вершин\n   queue = [start]    // очередь вершин для обработки\n   result = []        // результат обхода\n   parent = {}        // словарь для хранения родительских вершин\n\n2. Основной цикл:\n   Пока queue не пуста:\n       vertex = queue.pop(0)    // берем первую вершину из очереди\n       result.append(vertex)    // добавляем в результат\n       visited.add(vertex)      // помечаем как посещенную\n\n       // Обработка соседей:\n       Для каждого соседа neighbor вершины vertex:\n           Если neighbor не посещен:\n               visited.add(neighbor)    // помечаем как посещенного\n               queue.append(neighbor)    // добавляем в очередь\n               parent[neighbor] = vertex // запоминаем родителя\n\n3. Завершение:\n   Возвращаем result, parent''',
-            'DFS': '''Алгоритм DFS (поиск в глубину):\n1. Инициализация:\n   visited = ∅        // множество посещенных вершин\n   stack = [start]    // стек вершин для обработки\n   result = []        // результат обхода\n   parent = {}        // словарь для хранения родительских вершин\n   discovery_time = {} // время обнаружения вершин\n   finish_time = {}   // время завершения обработки вершин\n   time = 0           // текущее время\n\n2. Основной цикл:\n   Пока stack не пуст:\n       vertex = stack.pop()     // берем последнюю вершину из стека\n       Если vertex не посещена:\n           time += 1\n           discovery_time[vertex] = time  // запоминаем время обнаружения\n           result.append(vertex)    // добавляем в результат\n           visited.add(vertex)      // помечаем как посещенную\n\n           // Обработка соседей:\n           Для каждого соседа neighbor вершины vertex:\n               Если neighbor не посещен:\n                   stack.append(neighbor)    // добавляем в стек\n                   parent[neighbor] = vertex // запоминаем родителя\n           time += 1\n           finish_time[vertex] = time  // запоминаем время завершения\n\n3. Завершение:\n   Возвращаем result, parent, discovery_time, finish_time''',
+            'DFS': '''Алгоритм DFS (поиск в глубину):\n1. Инициализация:\n   visited = ∅        // множество посещенных вершин\n   stack = [start]    // стек вершин для обработки\n   parent = {}        // словарь для хранения родительских вершин\n   current_path = []  // текущий путь\n   current_vertex = None  // текущая обрабатываемая вершина\n\n2. Основной цикл:\n   Пока stack не пуст:\n       vertex = stack.pop()     // берем последнюю вершину из стека\n       Если vertex не посещена:\n           current_path.append(vertex)  // добавляем в текущий путь\n           current_vertex = vertex  // обновляем текущую вершину\n           visited.add(vertex)      // помечаем как посещенную\n\n           // Обработка соседей:\n           Для каждого соседа neighbor вершины vertex:\n               Если neighbor не посещен:\n                   stack.append(neighbor)    // добавляем в стек\n                   parent[neighbor] = vertex // запоминаем родителя\n           current_path.pop()  // удаляем последнюю вершину из текущего пути\n\n3. Завершение:\n   Возвращаем current_path''',
             'Dijkstra': '''Алгоритм поиска кратчайшего пути (Дейкстра):\n1. Инициализация:\n   distances = {v: ∞ для всех вершин v}  // расстояния до вершин\n   previous = {v: null для всех вершин v} // предыдущие вершины\n   unvisited = все вершины графа         // непосещенные вершины\n   distances[start] = 0                   // расстояние до начальной вершины\n   path = []                             // путь до конечной вершины\n\n2. Основной цикл:\n   Пока есть непосещенные вершины:\n       v = вершина с min расстоянием среди непосещенных\n       Если v не найдена, выход         // нет пути до оставшихся вершин\n       Помечаем v как посещенную\n       \n       // Обновляем расстояния до соседей:\n       Для каждого соседа u вершины v:\n           d = distances[v] + вес ребра (v,u)\n           Если d < distances[u]:\n               distances[u] = d          // найден более короткий путь\n               previous[u] = v           // запоминаем предыдущую вершину\n           Иначе:\n               # оставляем текущее расстояние\n\n3. Восстановление пути:\n   Если previous[end] не null:\n       current = end\n       Пока current не null:\n           path.append(current)\n           current = previous[current]\n       path.reverse()\n\n4. Завершение:\n   Возвращаем distances[end], path''',
             'bellman_ford': '''Алгоритм Беллмана-Форда:\n1. Инициализация:\n   distances = {v: ∞ для всех вершин v}  // расстояния до вершин\n   previous = {v: null для всех вершин v} // предыдущие вершины\n   distances[start] = 0                   // расстояние до начальной вершины\n   path = []                             // путь до конечной вершины\n\n2. Основной цикл (V-1 раз):\n   Для каждого ребра (u,v) с весом w:\n       Если distances[u] + w < distances[v]:\n           distances[v] = distances[u] + w  // обновляем расстояние\n           previous[v] = u                  // запоминаем предыдущую вершину\n\n3. Проверка на отрицательные циклы:\n   Для каждого ребра (u,v) с весом w:\n       Если distances[u] + w < distances[v]:\n           Найден отрицательный цикл\n           Выход с ошибкой\n\n4. Восстановление пути:\n   Если previous[end] не null:\n       current = end\n       Пока current не null:\n           path.append(current)\n           current = previous[current]\n       path.reverse()\n\n5. Завершение:\n   Возвращаем distances[end], path''',
             'MaxPath': "\n".join(self.max_path_algorithm.get_pseudocode()),
@@ -1031,22 +1031,14 @@ current_neighbor = {current_neighbor}  # текущий обрабатываем
         elif algorithm == 'DFS':
             visited = state.get('visited', set())
             stack = state.get('stack', [])
-            result = state.get('result', [])
             parent = state.get('parent', {})
-            discovery_time = state.get('discovery_time', {})
-            finish_time = state.get('finish_time', {})
-            current_vertex = state.get('current_vertex', None)
-            current_neighbor = state.get('current_neighbor', None)
-            
+            current_path = state.get('current_path', [])
+            current_vertex = current_path[-1] if current_path else None
             text = f"""Состояние переменных:
-visited = {sorted(list(visited))}  # посещенные вершины
-stack = {stack}  # стек вершин для обработки
-result = {result}  # результат обхода
-parent = {parent}  # родительские вершины
-discovery_time = {discovery_time}  # время обнаружения вершин
-finish_time = {finish_time}  # время завершения обработки вершин
-current_vertex = {current_vertex}  # текущая обрабатываемая вершина
-current_neighbor = {current_neighbor}  # текущий обрабатываемый сосед"""
+visited = {sorted(list(visited))}  # посещённые вершины
+stack = {stack}  # стек вершин
+parent = {parent}  # дерево обхода
+current_path = {current_path}  # текущий путь"""
             
         elif algorithm == 'Dijkstra':
             distances = state.get('distances', {})

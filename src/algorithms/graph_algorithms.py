@@ -290,42 +290,30 @@ class DFSAlgorithm(GraphAlgorithm):
     def get_pseudocode(self):
         return [
             "1. Инициализация:",
-            "   visited = ∅        // множество посещенных вершин",
-            "   stack = [start]    // стек вершин для обработки",
-            "   result = []        // результат обхода",
-            "   parent = {}        // словарь для хранения родительских вершин",
-            "   discovery_time = {} // время обнаружения вершин",
-            "   finish_time = {}   // время завершения обработки вершин",
-            "   time = 0           // текущее время",
+            "   visited = ∅",
+            "   stack = [start]",
+            "   parent = {}",
             "",
-            "2. Основной цикл:",
-            "   Пока stack не пуст:",
-            "       vertex = stack.pop()     // берем последнюю вершину из стека",
-            "       Если vertex не посещена:",
-            "           time += 1",
-            "           discovery_time[vertex] = time  // запоминаем время обнаружения",
-            "           result.append(vertex)    // добавляем в результат",
-            "           visited.add(vertex)      // помечаем как посещенную",
-            "",
-            "           // Обработка соседей:",
-            "           Для каждого соседа neighbor вершины vertex:",
-            "               Если neighbor не посещен:",
-            "                   stack.append(neighbor)    // добавляем в стек",
-            "                   parent[neighbor] = vertex // запоминаем родителя",
-            "           time += 1",
-            "           finish_time[vertex] = time  // запоминаем время завершения",
+            "2. Пока stack не пуст:",
+            "   vertex, path = stack.pop()",
+            "   Если vertex не посещена:",
+            "       visited.add(vertex)",
+            "       Для каждого соседа neighbor:",
+            "           Если neighbor не посещён:",
+            "               parent[neighbor] = vertex",
+            "               stack.append((neighbor, path + [neighbor]))",
             "",
             "3. Завершение:",
-            "   Возвращаем result, parent, discovery_time, finish_time"
+            "   Все достижимые вершины посещены, parent содержит дерево обхода"
         ]
 
     def get_highlight_map(self):
         return {
             'init': 0,
-            'main_loop': 8,
-            'neighbor_loop': 17,
-            'backtrack': 22,
-            'finish': 24
+            'main_loop': 4,
+            'neighbor_loop': 8,
+            'backtrack': 13,
+            'finish': 15
         }
 
     def get_name(self):
@@ -1064,7 +1052,7 @@ class MaxPathAlgorithm(GraphAlgorithm):
     def get_highlight_map(self):
         return {
             'init': 0,
-            'main_loop': 1,
+            'main_loop': 4,
             'finish': 3
         }
 
