@@ -3,7 +3,7 @@
 Обеспечивает отрисовку графа и обработку взаимодействия пользователя.
 """
 
-from PySide6.QtWidgets import QWidget, QMessageBox, QInputDialog
+from PySide6.QtWidgets import QWidget, QMessageBox, QInputDialog, QPushButton
 from PySide6.QtCore import Qt, QPoint
 from PySide6.QtGui import QPainter, QPen, QColor
 import networkx as nx
@@ -45,12 +45,24 @@ class GraphWidget(QWidget):
         self.dijkstra_end_vertex = None
         self.kruskal_total_weight = None
         self.kruskal_sets = {}
+        self._pan_active = False
+        self._pan_start = None
+        self._view_offset = QPoint(0, 0)  # смещение для panning
+        self._zoom = 1.0  # масштаб
+        # Кнопка автоцентрирования
+        self.fit_button = QPushButton('⤢', self)
+        self.fit_button.setToolTip('Подогнать граф под холст')
+        self.fit_button.setFixedSize(32, 32)
+        self.fit_button.clicked.connect(self.fit_to_view)
+        self.fit_button.raise_()
+        self.update_fit_button_pos()
 
     def resizeEvent(self, event):
         """Обработчик изменения размера виджета"""
         super().resizeEvent(event)
         if self.graph.nodes():
             self.adjust_layout()
+        self.update_fit_button_pos()
 
     def adjust_layout(self):
         """Корректирует размещение вершин, чтобы граф помещался в окне"""
@@ -298,13 +310,15 @@ class GraphWidget(QWidget):
         painter = QPainter(self)
         painter.setRenderHint(QPainter.RenderHint.Antialiasing)
         self._palette = palette  # сохраняем для использования в других методах
-        # Рисуем рёбра
+        # --- применяем масштаб и смещение ---
+        painter.save()
+        painter.translate(self._view_offset)
+        painter.scale(self._zoom, self._zoom)
+        # --- далее обычная отрисовка ---
         for edge in self.graph.edges():
             self._draw_edge(painter, edge)
-        # Рисуем вершины
         for vertex in self.graph.nodes():
             self._draw_vertex(painter, vertex)
-        # Рисуем временную линию при добавлении ребра
         if self.adding_edge and self.edge_start is not None and self.last_mouse_pos:
             painter.setPen(QPen(palette.highlight().color(), 2, Qt.PenStyle.DashLine))
             start_pos = self.vertex_positions[self.edge_start]
@@ -317,6 +331,7 @@ class GraphWidget(QWidget):
             painter.setFont(font)
             text = f"Вес минимального остовного дерева: {self.kruskal_total_weight}"
             painter.drawText(self.width() // 2 - 180, 40, text)
+        painter.restore()
 
     def _draw_edge(self, painter, edge):
         """Отрисовывает ребро графа"""
@@ -446,6 +461,10 @@ class GraphWidget(QWidget):
                     self._handle_edge_creation(vertex)
                 else:
                     self._handle_vertex_selection(vertex)
+        elif event.button() == Qt.MouseButton.RightButton:
+            self._pan_active = True
+            self._pan_start = event.position().toPoint()
+            self.setCursor(Qt.ClosedHandCursor)
 
     def mouseMoveEvent(self, event):
         """Обработчик перемещения мыши"""
@@ -456,6 +475,11 @@ class GraphWidget(QWidget):
             self.last_mouse_pos = event.position().toPoint()
             self.selected_vertex = self.find_vertex_at(event.position().toPoint())
             self.update()
+        elif self._pan_active and event.buttons() & Qt.MouseButton.RightButton:
+            delta = event.position().toPoint() - self._pan_start
+            self._view_offset += delta
+            self._pan_start = event.position().toPoint()
+            self.update()
 
     def mouseReleaseEvent(self, event):
         """Обработчик отпускания кнопки мыши"""
@@ -465,6 +489,9 @@ class GraphWidget(QWidget):
                 self.selected_vertex = None
             elif self.adding_edge and self.edge_start is not None and self.selected_vertex is not None:
                 self._finalize_edge_creation()
+        elif event.button() == Qt.MouseButton.RightButton:
+            self._pan_active = False
+            self.setCursor(Qt.ArrowCursor)
 
     def find_vertex_at(self, pos):
         """Находит вершину в заданной позиции"""
@@ -618,4 +645,53 @@ class GraphWidget(QWidget):
         # Сброс выделения начальной/конечной вершины
         self.dijkstra_start_vertex = None
         self.dijkstra_end_vertex = None
+        self.update()
+
+    def update_fit_button_pos(self):
+        margin = 10
+        self.fit_button.move(self.width() - self.fit_button.width() - margin, self.height() - self.fit_button.height() - margin)
+
+    def fit_to_view(self):
+        # Центрирует и масштабирует граф так, чтобы он полностью помещался на холсте
+        if not self.vertex_positions:
+            return
+        min_x = min(pos.x() for pos in self.vertex_positions.values())
+        max_x = max(pos.x() for pos in self.vertex_positions.values())
+        min_y = min(pos.y() for pos in self.vertex_positions.values())
+        max_y = max(pos.y() for pos in self.vertex_positions.values())
+        graph_width = max_x - min_x
+        graph_height = max_y - min_y
+        padding = 60
+        if graph_width == 0 or graph_height == 0:
+            self._zoom = 1.0
+            self._view_offset = QPoint(0, 0)
+            self.update()
+            return
+        scale_x = (self.width() - 2 * padding) / graph_width
+        scale_y = (self.height() - 2 * padding) / graph_height
+        self._zoom = min(scale_x, scale_y)
+        # Центрируем
+        center_x = (min_x + max_x) / 2
+        center_y = (min_y + max_y) / 2
+        widget_center_x = self.width() / 2
+        widget_center_y = self.height() / 2
+        self._view_offset = QPoint(int(widget_center_x - self._zoom * center_x), int(widget_center_y - self._zoom * center_y))
+        self.update()
+
+    def wheelEvent(self, event):
+        # Масштабирование колесиком мыши
+        zoom_in_factor = 1.15
+        zoom_out_factor = 1 / zoom_in_factor
+        old_zoom = self._zoom
+        if event.angleDelta().y() > 0:
+            self._zoom *= zoom_in_factor
+        else:
+            self._zoom *= zoom_out_factor
+        self._zoom = max(0.1, min(self._zoom, 10.0))
+        # Масштабируем относительно курсора
+        mouse_pos = event.position().toPoint()
+        offset_to_mouse = mouse_pos - self._view_offset
+        scale_change = self._zoom / old_zoom
+        new_offset_to_mouse = offset_to_mouse * scale_change
+        self._view_offset += offset_to_mouse - new_offset_to_mouse
         self.update() 
