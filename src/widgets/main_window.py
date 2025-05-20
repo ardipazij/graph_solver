@@ -551,194 +551,24 @@ class MainWindow(QMainWindow):
             
             self.graph_widget.set_graph(new_graph)
 
-    def show_pseudocode(self, algorithm):
-        """Показывает псевдокод выбранного алгоритма"""
+    def show_algorithm_pseudocode(self, algorithm_instance, highlight_key=None):
+        """Показывает псевдокод выбранного алгоритма с возможностью подсветки по ключу"""
+        pseudocode_lines = algorithm_instance.get_pseudocode()
+        highlight_map = algorithm_instance.get_highlight_map()
         self.pseudocode_container.setVisible(True)
-        pseudocodes = {
-            'BFS': '''Алгоритм BFS (поиск в ширину):
-1. Инициализация:
-   visited = ∅        // множество посещенных вершин
-   queue = [start]    // очередь вершин для обработки
-   result = []        // результат обхода
-   parent = {}        // словарь для хранения родительских вершин
-
-2. Основной цикл:
-   Пока queue не пуста:
-       vertex = queue.pop(0)    // берем первую вершину из очереди
-       result.append(vertex)    // добавляем в результат
-       visited.add(vertex)      // помечаем как посещенную
-
-       // Обработка соседей:
-       Для каждого соседа neighbor вершины vertex:
-           Если neighbor не посещен:
-               visited.add(neighbor)    // помечаем как посещенного
-               queue.append(neighbor)    // добавляем в очередь
-               parent[neighbor] = vertex // запоминаем родителя
-
-3. Завершение:
-   Возвращаем result, parent''',
-            
-            'DFS': '''Алгоритм DFS (поиск в глубину):
-1. Инициализация:
-   visited = ∅        // множество посещенных вершин
-   stack = [start]    // стек вершин для обработки
-   result = []        // результат обхода
-   parent = {}        // словарь для хранения родительских вершин
-   discovery_time = {} // время обнаружения вершин
-   finish_time = {}   // время завершения обработки вершин
-   time = 0           // текущее время
-
-2. Основной цикл:
-   Пока stack не пуст:
-       vertex = stack.pop()     // берем последнюю вершину из стека
-       Если vertex не посещена:
-           time += 1
-           discovery_time[vertex] = time  // запоминаем время обнаружения
-           result.append(vertex)    // добавляем в результат
-           visited.add(vertex)      // помечаем как посещенную
-
-           // Обработка соседей:
-           Для каждого соседа neighbor вершины vertex:
-               Если neighbor не посещен:
-                   stack.append(neighbor)    // добавляем в стек
-                   parent[neighbor] = vertex // запоминаем родителя
-           time += 1
-           finish_time[vertex] = time  // запоминаем время завершения
-
-3. Завершение:
-   Возвращаем result, parent, discovery_time, finish_time''',
-            
-            'Dijkstra': '''Алгоритм поиска кратчайшего пути (Дейкстра):
-1. Инициализация:
-   distances = {v: ∞ для всех вершин v}  // расстояния до вершин
-   previous = {v: null для всех вершин v} // предыдущие вершины
-   unvisited = все вершины графа         // непосещенные вершины
-   distances[start] = 0                   // расстояние до начальной вершины
-   path = []                             // путь до конечной вершины
-
-2. Основной цикл:
-   Пока есть непосещенные вершины:
-       v = вершина с min расстоянием среди непосещенных
-       Если v не найдена, выход         // нет пути до оставшихся вершин
-       Помечаем v как посещенную
-       
-       // Обновляем расстояния до соседей:
-       Для каждого соседа u вершины v:
-           d = distances[v] + вес ребра (v,u)
-           Если d < distances[u]:
-               distances[u] = d          // найден более короткий путь
-               previous[u] = v           // запоминаем предыдущую вершину
-           Иначе:
-               # оставляем текущее расстояние
-
-3. Восстановление пути:
-   Если previous[end] не null:
-       current = end
-       Пока current не null:
-           path.append(current)
-           current = previous[current]
-       path.reverse()
-
-4. Завершение:
-   Возвращаем distances[end], path''',
-            
-            'bellman_ford': '''Алгоритм Беллмана-Форда:
-1. Инициализация:
-   distances = {v: ∞ для всех вершин v}  // расстояния до вершин
-   previous = {v: null для всех вершин v} // предыдущие вершины
-   distances[start] = 0                   // расстояние до начальной вершины
-   path = []                             // путь до конечной вершины
-
-2. Основной цикл (V-1 раз):
-   Для каждого ребра (u,v) с весом w:
-       Если distances[u] + w < distances[v]:
-           distances[v] = distances[u] + w  // обновляем расстояние
-           previous[v] = u                  // запоминаем предыдущую вершину
-
-3. Проверка на отрицательные циклы:
-   Для каждого ребра (u,v) с весом w:
-       Если distances[u] + w < distances[v]:
-           Найден отрицательный цикл
-           Выход с ошибкой
-
-4. Восстановление пути:
-   Если previous[end] не null:
-       current = end
-       Пока current не null:
-           path.append(current)
-           current = previous[current]
-       path.reverse()
-
-5. Завершение:
-   Возвращаем distances[end], path'''
-        }
-        
-        if algorithm in pseudocodes:
-            self.pseudocode_widget.setPlainText(pseudocodes[algorithm])
-            self.pseudocode_widget.setVisible(True)
-            self.current_pseudocode = pseudocodes[algorithm]
-            self.current_algorithm = algorithm
-        else:
-            self.pseudocode_widget.setVisible(False)
-
-    def highlight_pseudocode_line(self, line_number):
-        """Подсвечивает указанную строку в псевдокоде"""
-        if not hasattr(self, 'current_pseudocode'):
-            return
-        
-        lines = self.current_pseudocode.split('\n')
+        # Формируем HTML с подсветкой
         highlighted_lines = []
-        
-        for i, line in enumerate(lines):
-            if i == line_number:
-                # Подсвечиваем только одну строку
+        highlight_line = highlight_map.get(highlight_key, None) if highlight_key else None
+        for i, line in enumerate(pseudocode_lines):
+            if i == highlight_line:
                 highlighted_lines.append(f'<div style="background-color: #fff3cd; color: #000; font-weight: bold;">{line}</div>')
             else:
-                # Остальные строки — обычные
                 highlighted_lines.append(f'<div>{line}</div>')
         highlighted_text = ''.join(highlighted_lines)
         self.pseudocode_widget.setHtml(highlighted_text)
-
-    def toggle_pause(self):
-        """Переключает состояние паузы"""
-        self.is_paused = self.pause_btn.isChecked()
-        self.pause_btn.setText("▶" if self.is_paused else "⏸")
-        
-        if self.is_paused:
-            if hasattr(self, 'animation_timer') and self.animation_timer.isActive():
-                self.animation_timer.stop()
-        else:
-            if hasattr(self, 'animation_timer'):
-                if (hasattr(self.bfs_algorithm, 'queue') and self.bfs_algorithm.queue) or \
-                   (hasattr(self.dfs_algorithm, 'stack') and self.dfs_algorithm.stack) or \
-                   (hasattr(self.dijkstra_algorithm, 'distances') and self.dijkstra_algorithm.distances):
-                    self.animation_timer.start()
-
-    def on_speed_changed(self, value):
-        """Обработчик изменения значения слайдера скорости"""
-        speed_multipliers = {
-            0: 0.25,  # Очень медленно
-            1: 0.5,   # Медленно
-            2: 1.0,   # Нормально
-            3: 2.0,   # Быстро
-            4: 4.0    # Очень быстро
-        }
-        
-        multiplier = speed_multipliers[value]
-        self.current_delay = int(1000 / multiplier)
-        self.speed_value_label.setText(f"{multiplier}x")
-        
-        if hasattr(self, 'animation_timer') and self.animation_timer.isActive():
-            self.animation_timer.setInterval(self.current_delay)
-
-    def stop_animation(self):
-        """Останавливает текущую анимацию алгоритма (если есть)"""
-        if hasattr(self, 'animation_timer') and self.animation_timer.isActive():
-            self.animation_timer.stop()
-        if hasattr(self, 'timer') and self.timer.isActive():
-            self.timer.stop()
-        self.pause_btn.setChecked(False)
-        self.is_paused = False
+        self.pseudocode_widget.setVisible(True)
+        self.current_pseudocode = '\n'.join(pseudocode_lines)
+        self.current_algorithm = algorithm_instance.get_name()
 
     def start_bfs(self):
         self.stop_animation()
@@ -748,38 +578,26 @@ class MainWindow(QMainWindow):
         if not self.graph_widget.graph.nodes():
             QMessageBox.warning(self, "Ошибка", "Граф пуст")
             return
-            
-        self.show_pseudocode('BFS')
+        # Новый универсальный вызов:
+        self.show_algorithm_pseudocode(self.bfs_algorithm, highlight_key='init')
         vertices = sorted(list(self.graph_widget.graph.nodes()))
-        
         if not vertices:
             return
-            
         vertex, ok = QInputDialog.getInt(
             self, 'Выбор начальной вершины',
             'Введите номер начальной вершины:',
             vertices[0], vertices[0], vertices[-1], 1
         )
-        
         if ok and vertex in vertices:
-            # Создаем и настраиваем таймер анимации
             self.animation_timer = QTimer()
             self.animation_timer.timeout.connect(lambda: self._algorithm_step(self.bfs_algorithm))
-            
-            # Запускаем алгоритм
             self.bfs_algorithm.start(vertex)
-            
-            # Используем текущее значение скорости
             speed_multipliers = {0: 0.25, 1: 0.5, 2: 1.0, 3: 2.0, 4: 4.0}
             current_multiplier = speed_multipliers[self.speed_slider.value()]
             self.current_delay = int(1000 / current_multiplier)
-            
-            # Сбрасываем состояние паузы
             self.pause_btn.setChecked(False)
             self.pause_btn.setText("⏸")
             self.is_paused = False
-            
-            # Запускаем анимацию
             self.animation_timer.setInterval(self.current_delay)
             self.animation_timer.start()
 
@@ -792,7 +610,7 @@ class MainWindow(QMainWindow):
             QMessageBox.warning(self, "Ошибка", "Граф пуст")
             return
             
-        self.show_pseudocode('DFS')
+        self.show_algorithm_pseudocode(self.dfs_algorithm, highlight_key='init')
         vertices = sorted(list(self.graph_widget.graph.nodes()))
         
         if not vertices:
@@ -805,24 +623,15 @@ class MainWindow(QMainWindow):
         )
         
         if ok and vertex in vertices:
-            # Создаем и настраиваем таймер анимации
             self.animation_timer = QTimer()
             self.animation_timer.timeout.connect(lambda: self._algorithm_step(self.dfs_algorithm))
-            
-            # Запускаем алгоритм
             self.dfs_algorithm.start(vertex)
-            
-            # Используем текущее значение скорости
             speed_multipliers = {0: 0.25, 1: 0.5, 2: 1.0, 3: 2.0, 4: 4.0}
             current_multiplier = speed_multipliers[self.speed_slider.value()]
             self.current_delay = int(1000 / current_multiplier)
-            
-            # Сбрасываем состояние паузы
             self.pause_btn.setChecked(False)
             self.pause_btn.setText("⏸")
             self.is_paused = False
-            
-            # Запускаем анимацию
             self.animation_timer.setInterval(self.current_delay)
             self.animation_timer.start()
 
@@ -853,7 +662,7 @@ class MainWindow(QMainWindow):
             )
             if response == QMessageBox.StandardButton.No:
                 return
-        self.show_pseudocode('Dijkstra')
+        self.show_algorithm_pseudocode(self.dijkstra_algorithm, highlight_key='init')
         # Показываем сообщение о необходимости выбрать начальную вершину
         self.algorithm_step_label.setText("Выберите начальную вершину")
         self.algorithm_step_label.setVisible(True)
@@ -1250,7 +1059,7 @@ path = {path}"""
             if response == QMessageBox.StandardButton.No:
                 return
 
-        self.show_pseudocode('bellman_ford')
+        self.show_algorithm_pseudocode(self.bellman_ford_algorithm, highlight_key='init')
         # Показываем сообщение о необходимости выбрать начальную вершину
         self.algorithm_step_label.setText("Выберите начальную вершину")
         self.algorithm_step_label.setVisible(True)
