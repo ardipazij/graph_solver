@@ -1060,4 +1060,31 @@ class MaxPathAlgorithm(GraphAlgorithm):
         return "MaxPath (поиск максимального простого пути)"
 
     def get_description(self):
-        return "Поиск самого длинного простого пути между двумя вершинами (экспоненциальный перебор, как в graphonline)." 
+        return "Поиск самого длинного простого пути между двумя вершинами (экспоненциальный перебор, как в graphonline)."
+
+class KruskalAlgorithm(GraphAlgorithm):
+    def get_pseudocode(self):
+        return [
+            "1. edges = отсортировать_по_весу(ребра)",
+            "2. для v в вершинах: parent[v] = v",
+            "3. mst = []",
+            "4. для (u, v) в edges:",
+            "5.     если find(u) != find(v):",
+            "6.         mst.append((u, v))",
+            "7.         union(u, v)",
+            "8.     иначе: пропустить (u, v)",
+            "9. если len(mst) == n-1: завершить"
+        ]
+
+    def get_highlight_map(self):
+        return {
+            'init': 0,
+            'main_loop': 4,
+            'finish': 3
+        }
+
+    def get_name(self):
+        return "Kruskal (алгоритм Краскала)"
+
+    def get_description(self):
+        return "Алгоритм Краскала — эффективный способ поиска минимального остовного дерева в графе." 
