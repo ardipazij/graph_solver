@@ -50,24 +50,31 @@ class GraphAlgorithm:
         pass
 
 class BFSAlgorithm(GraphAlgorithm):
-    """Реализация алгоритма поиска в ширину (BFS)"""
-    
+    """Пошаговый BFS: каждый сосед обрабатывается отдельно с подсветкой и выводом информации"""
     def __init__(self, main_window):
         super().__init__(main_window)
         self.queue = []
         self.parent = {}
+        self.result = []
         self.current_vertex = None
-        self.current_neighbor = None
-        self.step = 0
+        self._bfs_substep = 0
+        self._bfs_neighbors = []
+        self._bfs_neighbor_idx = 0
+        self.path_edges = []
 
     def reset(self):
         super().reset()
         self.queue = []
         self.parent = {}
+        self.result = []
         self.current_vertex = None
-        self.current_neighbor = None
-        self.step = 0
+        self._bfs_substep = 0
+        self._bfs_neighbors = []
+        self._bfs_neighbor_idx = 0
+        self.path_edges = []
         self.main_window.graph_widget.visited_vertices = set()
+        self.main_window.graph_widget.bfs_current_edge = None
+        self.main_window.graph_widget.bfs_path = []
 
     def get_pseudocode(self):
         return [
@@ -94,85 +101,84 @@ class BFSAlgorithm(GraphAlgorithm):
             "   Возвращаем result, parent"
         ]
 
-    def get_highlight_map(self):
-        return {
-            'init': 0,
-            'main_loop': 6,
-            'pop_vertex': 8,
-            'append_result': 9,
-            'add_visited': 10,
-            'neighbor_loop': 12,
-            'neighbor_check': 13,
-            'add_neighbor_visited': 14,
-            'add_neighbor_queue': 15,
-            'set_parent': 16,
-            'finish': 18
-        }
-
-    def get_name(self):
-        return "BFS (поиск в ширину)"
-
-    def get_description(self):
-        return "Алгоритм поиска в ширину (Breadth-First Search) — находит кратчайшие пути в невзвешенном графе."
-
     def start(self, start_vertex):
         self.reset()
         self.queue = [start_vertex]
         self.visited = {start_vertex}
         self.parent = {}
+        self.result = []
         self.current_vertex = None
-        self.current_neighbor = None
-        self.step = 0
-        message = "Начинаем обход графа в ширину..."
-        self.main_window.explanation_widget.clear()
-        self.main_window.explanation_widget.append(message)
         self.main_window.graph_widget.visited_vertices = set(self.visited)
         self.main_window.graph_widget.bfs_current = start_vertex
+        self.main_window.graph_widget.bfs_current_edge = None
         self.main_window.graph_widget.update()
-        return False, message, self._get_state(), 'init'
+        self._bfs_substep = 0
+        return False, f"Начинаем обход графа в ширину с вершины {start_vertex}", self._get_state(), 'init'
 
     def next_step(self):
-        if not self.queue:
-            message = "Обход завершен!"
-            self.main_window.explanation_widget.append(message)
+        # Если очередь пуста — завершить обход
+        if not self.queue and self._bfs_substep == 0:
+            # Подсветить BFS-дерево (пути parent)
+            path_edges = [(v, p) for v, p in self.parent.items()]
+            self.main_window.graph_widget.bfs_path = path_edges
             self.main_window.graph_widget.bfs_current = None
             self.main_window.graph_widget.bfs_current_edge = None
             self.main_window.graph_widget.update()
-            return True, message, self._get_state(), 'finish'
-        self.current_vertex = self.queue.pop(0)
-        self.result.append(self.current_vertex)
-        self.visited.add(self.current_vertex)
-        self.main_window.graph_widget.visited_vertices = set(self.visited)
-        self.main_window.graph_widget.bfs_current = self.current_vertex
-        message = f"Обрабатываем вершину {self.current_vertex}"
-        self.main_window.explanation_widget.append(message)
-        neighbors = list(self.main_window.graph_widget.graph.neighbors(self.current_vertex))
-        for neighbor in neighbors:
-            self.main_window.graph_widget.bfs_current_edge = (self.current_vertex, neighbor)
+            return True, "Обход завершен!", self._get_state(), 'finish'
+
+        # Подшаг 0: взять вершину из очереди
+        if self._bfs_substep == 0:
+            self.current_vertex = self.queue.pop(0)
+            self.result.append(self.current_vertex)
+            self.visited.add(self.current_vertex)
+            self.main_window.graph_widget.visited_vertices = set(self.visited)
+            self.main_window.graph_widget.bfs_current = self.current_vertex
+            self._bfs_neighbors = list(self.main_window.graph_widget.graph.neighbors(self.current_vertex))
+            self._bfs_neighbor_idx = 0
+            self.main_window.graph_widget.bfs_current_edge = None
             self.main_window.graph_widget.update()
-            if neighbor not in self.visited:
-                message = f"Найден непосещенный сосед: {neighbor}"
-                self.main_window.explanation_widget.append(message)
-                self.visited.add(neighbor)
-                self.main_window.graph_widget.visited_vertices = set(self.visited)
-                self.queue.append(neighbor)
-                self.parent[neighbor] = self.current_vertex
-                self.path.append((self.current_vertex, neighbor))
-                self.main_window.graph_widget.bfs_path = self.path
+            self._bfs_substep = 1
+            return False, f"Взяли вершину {self.current_vertex} из очереди", self._get_state(), 'pop_vertex'
+
+        # Подшаг 1: обработка соседей по одному
+        if self._bfs_substep == 1:
+            if self._bfs_neighbor_idx < len(self._bfs_neighbors):
+                neighbor = self._bfs_neighbors[self._bfs_neighbor_idx]
+                self.main_window.graph_widget.bfs_current_edge = (self.current_vertex, neighbor)
+                self.main_window.graph_widget.update()
+                if neighbor not in self.visited:
+                    self.visited.add(neighbor)
+                    self.queue.append(neighbor)
+                    self.parent[neighbor] = self.current_vertex
+                    self.path_edges.append((self.current_vertex, neighbor))
+                    msg = f"Добавили {neighbor} в очередь и пометили как посещённого (родитель: {self.current_vertex})"
+                else:
+                    msg = f"Сосед {neighbor} уже был посещён"
+                self._bfs_neighbor_idx += 1
+                return False, msg, self._get_state(), 'neighbor_check'
             else:
-                message = f"Сосед {neighbor} уже был посещен"
-                self.main_window.explanation_widget.append(message)
-        self.main_window.graph_widget.bfs_current_edge = None
-        self.main_window.graph_widget.update()
-        return False, message, self._get_state(), 'main_loop'
+                self.main_window.graph_widget.bfs_current_edge = None
+                self.main_window.graph_widget.update()
+                self._bfs_substep = 0
+                return False, f"Завершили обработку всех соседей вершины {self.current_vertex}", self._get_state(), 'neighbor_loop'
 
     def _get_state(self):
-        """Возвращает текущее состояние алгоритма (только ключевые переменные)"""
         return {
             'visited': self.visited,
             'queue': self.queue,
             'parent': self.parent,
-            'current_vertex': self.current_vertex
+            'result': self.result,
+            'current_vertex': self.current_vertex,
+            'current_neighbor': self._bfs_neighbors[self._bfs_neighbor_idx-1] if self._bfs_neighbor_idx > 0 and self._bfs_neighbor_idx <= len(self._bfs_neighbors) else None
+        }
+
+    def get_highlight_map(self):
+        return {
+            'init': 0,
+            'pop_vertex': 7,
+            'neighbor_check': 13,
+            'neighbor_loop': 17,
+            'finish': 19
         }
 
 class DFSAlgorithm(GraphAlgorithm):
@@ -275,7 +281,7 @@ class DFSAlgorithm(GraphAlgorithm):
         return {
             'current_path': self.current_path,
             'stack': [v for v, _, _ in self.stack],
-            'visited': list(set(self.current_path)),
+            'visited': list(self.visited),
             'parent': self.parent,
             'paths_checked': self.paths_checked
         }

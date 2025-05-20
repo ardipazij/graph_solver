@@ -363,20 +363,15 @@ class GraphWidget(QWidget):
         is_start = False
         is_end = False
         # Для Дейкстры
-        if getattr(self, 'dijkstra_start_vertex', None) is not None:
+        if getattr(self, 'dijkstra_start_vertex', None) is not None and self.dijkstra_start_vertex is not None:
             is_start = (vertex == self.dijkstra_start_vertex)
-        if getattr(self, 'dijkstra_end_vertex', None) is not None:
+        if getattr(self, 'dijkstra_end_vertex', None) is not None and self.dijkstra_end_vertex is not None:
             is_end = (vertex == self.dijkstra_end_vertex)
-        # Для BFS/DFS (если нужно)
-        if not is_start and hasattr(self, 'bfs_path') and self.bfs_path:
-            if vertex == self.bfs_path[0][0]:
-                is_start = True
-            if vertex == self.bfs_path[-1][1]:
-                is_end = True
-        if is_start:
+        # Для BFS/DFS не выделяем начальную/конечную вершину цветом
+        if is_start and self.main_window.current_algorithm == 'Dijkstra':
             painter.setPen(QPen(palette.windowText().color(), 2))
             painter.setBrush(QColor(255, 215, 0))  # жёлтый
-        elif is_end:
+        elif is_end and self.main_window.current_algorithm == 'Dijkstra':
             painter.setPen(QPen(palette.windowText().color(), 2))
             painter.setBrush(QColor(220, 0, 0))  # красный
         elif self.adding_edge and (vertex == self.edge_start or vertex == self.selected_vertex):

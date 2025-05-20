@@ -653,6 +653,7 @@ class MainWindow(QMainWindow):
         )
         
         if ok and vertex in vertices:
+            self.current_algorithm = 'BFS'
             # Создаем и настраиваем таймер анимации
             self.animation_timer = QTimer()
             self.animation_timer.timeout.connect(lambda: self._algorithm_step(self.bfs_algorithm))
