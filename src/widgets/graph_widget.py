@@ -459,6 +459,8 @@ class GraphWidget(QWidget):
         # Сброс выделения начальной/конечной вершины
         self.dijkstra_start_vertex = None
         self.dijkstra_end_vertex = None
+        # Останавливаем алгоритм при добавлении вершины
+        self.main_window.stop_animation()
         self.update()
 
     def _handle_edge_creation(self, vertex):
@@ -513,6 +515,9 @@ class GraphWidget(QWidget):
                 self.graph.add_edge(self.selected_vertex, self.edge_start, weight=weight)
             else:
                 self.graph.add_edge(self.selected_vertex, self.edge_start)
+            # Останавливаем алгоритм при изменении направления ребра
+            self.main_window.stop_animation()
+            self.update()
 
     def _update_edge_weight(self):
         """Обновляет вес существующего ребра"""
@@ -523,6 +528,9 @@ class GraphWidget(QWidget):
         )
         if ok:
             self.graph[self.edge_start][self.selected_vertex]['weight'] = weight
+            # Останавливаем алгоритм при изменении веса ребра
+            self.main_window.stop_animation()
+            self.update()
 
     def _add_new_edge(self):
         """Добавляет новое ребро в граф"""
@@ -538,6 +546,8 @@ class GraphWidget(QWidget):
         # Сброс выделения начальной/конечной вершины
         self.dijkstra_start_vertex = None
         self.dijkstra_end_vertex = None
+        # Останавливаем алгоритм при добавлении ребра
+        self.main_window.stop_animation()
         self.update()
 
     def start_adding_vertex(self):
