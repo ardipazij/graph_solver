@@ -636,9 +636,16 @@ class MainWindow(QMainWindow):
                 self.animation_timer.stop()
         else:
             if hasattr(self, 'animation_timer'):
-                if (hasattr(self.bfs_algorithm, 'queue') and self.bfs_algorithm.queue) or \
-                   (hasattr(self.dfs_algorithm, 'stack') and self.dfs_algorithm.stack) or \
-                   (hasattr(self.dijkstra_algorithm, 'distances') and self.dijkstra_algorithm.distances):
+                # Не запускать таймер, если какой-либо алгоритм ждёт выбор вершины
+                waiting = False
+                if getattr(self.graph_widget, 'waiting_for_vertex_selection', False):
+                    waiting = True
+                # Dijkstra, Bellman-Ford, MaxPath могут ждать выбор конечной вершины
+                for algo_name in ['dijkstra_algorithm', 'bellman_ford_algorithm', 'max_path_algorithm']:
+                    algo = getattr(self, algo_name, None)
+                    if algo and getattr(algo, 'waiting_for_end', False):
+                        waiting = True
+                if not waiting:
                     self.animation_timer.start()
 
     def on_speed_changed(self, value):
@@ -686,6 +693,8 @@ class MainWindow(QMainWindow):
         self.algorithm_step_label.clear()
         self.algorithm_step_label.setVisible(False)
         self.explanation_widget.clear()
+        # Очищаем отображение веса остова (если не Краскал)
+        self.graph_widget.kruskal_total_weight = None
 
     def start_bfs(self):
         self.start_algorithm()  # Добавляем вызов
