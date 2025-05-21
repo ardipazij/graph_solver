@@ -629,24 +629,27 @@ class GraphWidget(QWidget):
             self.setCursor(Qt.CursorShape.CrossCursor)
 
     def stop_adding(self):
-        """Выключает режимы добавления"""
+        """Останавливает режим добавления вершины или ребра"""
         self.adding_vertex = False
         self.adding_edge = False
-        self.selected_vertex = None
         self.edge_start = None
-        self.setCursor(Qt.CursorShape.ArrowCursor)
+        self.selected_vertex = None
+        self.update()
 
     def reset_visual_state(self):
-        """Сбрасывает все визуальные состояния графа (цвета, выделения, расстояния, сравнения)"""
+        """Сбрасывает все визуальные состояния графа"""
         self.visited_vertices.clear()
         self.bfs_current = None
         self.bfs_path.clear()
         self.bfs_current_edge = None
-        self.distances = {}
-        self.comparison_text = {}
-        # Сброс выделения начальной/конечной вершины
+        self.distances.clear()
+        self.comparison_text.clear()
+        self.waiting_for_vertex_selection = False
+        self.vertex_selection_callback = None
         self.dijkstra_start_vertex = None
         self.dijkstra_end_vertex = None
+        self.kruskal_total_weight = None
+        self.kruskal_sets.clear()
         self.update()
 
     def update_fit_button_pos(self):

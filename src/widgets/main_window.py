@@ -667,7 +667,28 @@ class MainWindow(QMainWindow):
         self.pause_btn.setChecked(False)
         self.is_paused = False
 
+    def reset_adding_state(self):
+        """Сбрасывает состояние кнопок добавления и соответствующих флагов"""
+        # Сбрасываем состояние кнопок
+        self.add_vertex_btn.setChecked(False)
+        self.add_edge_btn.setChecked(False)
+        # Сбрасываем флаги в graph_widget
+        self.graph_widget.stop_adding()
+        self.graph_widget.reset_visual_state()
+
+    def start_algorithm(self):
+        """Подготовка к запуску алгоритма"""
+        self.reset_adding_state()  # Сбрасываем состояние добавления
+        self.stop_animation()
+        self.graph_widget.reset_visual_state()
+        self.variables_widget.clear()
+        self.pseudocode_widget.clear()
+        self.algorithm_step_label.clear()
+        self.algorithm_step_label.setVisible(False)
+        self.explanation_widget.clear()
+
     def start_bfs(self):
+        self.start_algorithm()  # Добавляем вызов
         self.stop_animation()
         self.graph_widget.reset_visual_state()
         self.variables_widget.clear()
@@ -712,6 +733,7 @@ class MainWindow(QMainWindow):
             self.animation_timer.start()
 
     def start_dfs(self):
+        self.start_algorithm()  # Добавляем вызов
         self.stop_animation()
         self.graph_widget.reset_visual_state()
         self.variables_widget.clear()
@@ -755,6 +777,7 @@ class MainWindow(QMainWindow):
             self.animation_timer.start()
 
     def start_dijkstra(self):
+        self.start_algorithm()  # Добавляем вызов
         self.stop_animation()
         self.graph_widget.reset_visual_state()
         self.variables_widget.clear()
@@ -1223,6 +1246,7 @@ current_edge = {current_edge}  # текущее выбранное ребро"""
             self.explanation_toggle_btn.setText("Скрыть пояснения")
 
     def start_bellman_ford(self):
+        self.start_algorithm()  # Добавляем вызов
         self.stop_animation()
         self.graph_widget.reset_visual_state()
         self.variables_widget.clear()
@@ -1300,6 +1324,7 @@ current_edge = {current_edge}  # текущее выбранное ребро"""
             self.animation_timer.start()
 
     def start_max_path(self):
+        self.start_algorithm()  # Добавляем вызов
         self.current_algorithm = 'MaxPath'
         self.stop_animation()
         self.graph_widget.reset_visual_state()
@@ -1361,6 +1386,7 @@ current_edge = {current_edge}  # текущее выбранное ребро"""
             self.animation_timer.start() 
 
     def start_kruskal(self):
+        self.start_algorithm()  # Добавляем вызов
         self.stop_animation()
         self.graph_widget.reset_visual_state()
         self.variables_widget.clear()
@@ -1396,6 +1422,7 @@ current_edge = {current_edge}  # текущее выбранное ребро"""
         self.animation_timer.start() 
 
     def start_prim(self):
+        self.start_algorithm()  # Добавляем вызов
         self.stop_animation()
         self.graph_widget.reset_visual_state()
         self.variables_widget.clear()
