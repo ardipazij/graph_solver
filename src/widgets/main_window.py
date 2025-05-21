@@ -5,7 +5,7 @@
 
 from PySide6.QtWidgets import (QMainWindow, QWidget, QVBoxLayout, QHBoxLayout,
                            QPushButton, QLabel, QFileDialog, QTextEdit, QMessageBox,
-                           QCheckBox, QInputDialog, QMenu, QSlider, QGraphicsOpacityEffect)
+                           QCheckBox, QInputDialog, QMenu, QSlider, QGraphicsOpacityEffect, QApplication)
 from PySide6.QtCore import Qt, QTimer, QDateTime, QPropertyAnimation
 from PySide6.QtGui import QFontMetrics, QFont
 import networkx as nx
@@ -26,7 +26,12 @@ class MainWindow(QMainWindow):
     def __init__(self):
         super().__init__()
         self.setWindowTitle("Визуализатор графов")
-        self.setMinimumSize(1000, 600)
+        # --- адаптивный минимальный размер ---
+        screen = QApplication.primaryScreen()
+        screen_size = screen.availableGeometry().size()
+        min_width = min(1440, screen_size.width() - 100)
+        min_height = min(650, screen_size.height() - 100)
+        self.setMinimumSize(min_width, min_height)
         
         # Инициализация компонентов UI
         self.setup_ui()

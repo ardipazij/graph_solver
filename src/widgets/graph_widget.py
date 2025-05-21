@@ -52,7 +52,7 @@ class GraphWidget(QWidget):
         # Кнопка автоцентрирования
         self.fit_button = QPushButton('⤢', self)
         self.fit_button.setToolTip('Подогнать граф под холст')
-        self.fit_button.setFixedSize(32, 32)
+        self.fit_button.setStyleSheet('background: rgba(255,255,255,180); border-radius: 6px;')
         self.fit_button.clicked.connect(self.fit_to_view)
         self.fit_button.raise_()
         self.update_fit_button_pos()
@@ -649,7 +649,16 @@ class GraphWidget(QWidget):
 
     def update_fit_button_pos(self):
         margin = 10
-        self.fit_button.move(self.width() - self.fit_button.width() - margin, self.height() - self.fit_button.height() - margin)
+        w = self.width()
+        if w > 1200:
+            size = 32
+        elif w > 800:
+            size = 24
+        else:
+            size = 18
+        self.fit_button.setFixedSize(size, size)
+        self.fit_button.move(self.width() - size - margin, self.height() - size - margin)
+        self.fit_button.raise_()
 
     def fit_to_view(self):
         # Центрирует и масштабирует граф так, чтобы он полностью помещался на холсте
