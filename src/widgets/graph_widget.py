@@ -348,7 +348,9 @@ class GraphWidget(QWidget):
         end_y = end.y() - 20 * np.sin(angle)
         # Путь всегда зелёный
         if (edge[0], edge[1]) in self.bfs_path or (edge[1], edge[0]) in self.bfs_path:
-            painter.setPen(QPen(QColor(0, 180, 0), 3))
+            path_color = QColor(palette.highlight().color())
+            path_color.setAlpha(200)  # немного прозрачности
+            painter.setPen(QPen(path_color, 3))
         elif edge == self.bfs_current_edge or (edge[1], edge[0]) == self.bfs_current_edge:
             painter.setPen(QPen(palette.highlight().color(), 3))
         else:
@@ -407,20 +409,21 @@ class GraphWidget(QWidget):
         # Выделяем цветом для Дейкстры и Беллмана-Форда
         if is_start and (is_dijkstra or is_bellman):
             painter.setPen(QPen(palette.windowText().color(), 2))
-            painter.setBrush(QColor(255, 215, 0))  # жёлтый
+            painter.setBrush(QColor(255, 215, 0))  # жёлтый для начальной вершины
         elif is_end and (is_dijkstra or is_bellman):
             painter.setPen(QPen(palette.windowText().color(), 2))
-            painter.setBrush(QColor(220, 0, 0))  # красный
+            painter.setBrush(QColor(255, 69, 0))  # оранжево-красный для конечной вершины
         elif self.adding_edge and (vertex == self.edge_start or vertex == self.selected_vertex):
             painter.setPen(QPen(palette.link().color(), 2))
-            painter.setBrush(palette.base().color())
+            painter.setBrush(palette.highlight().color())
         else:
             painter.setPen(QPen(palette.windowText().color(), 2))
             if vertex == self.bfs_current:
                 painter.setBrush(palette.highlight().color())
             elif vertex in self.visited_vertices:
                 # Эффект свечения: полупрозрачный круг большего радиуса
-                glow_color = QColor(0, 180, 0, 100)  # зелёный с alpha
+                glow_color = QColor(palette.highlight().color())
+                glow_color.setAlpha(100)  # полупрозрачность
                 painter.setPen(Qt.NoPen)
                 painter.setBrush(glow_color)
                 painter.drawEllipse(pos, 20 + 10, 20 + 10)
@@ -648,64 +651,4 @@ class GraphWidget(QWidget):
         self.vertex_selection_callback = None
         self.dijkstra_start_vertex = None
         self.dijkstra_end_vertex = None
-        self.kruskal_total_weight = None
-        self.kruskal_sets.clear()
-        self.update()
-
-    def update_fit_button_pos(self):
-        margin = 10
-        w = self.width()
-        if w > 1200:
-            size = 32
-        elif w > 800:
-            size = 24
-        else:
-            size = 18
-        self.fit_button.setFixedSize(size, size)
-        self.fit_button.move(self.width() - size - margin, self.height() - size - margin)
-        self.fit_button.raise_()
-
-    def fit_to_view(self):
-        # Центрирует и масштабирует граф так, чтобы он полностью помещался на холсте
-        if not self.vertex_positions:
-            return
-        min_x = min(pos.x() for pos in self.vertex_positions.values())
-        max_x = max(pos.x() for pos in self.vertex_positions.values())
-        min_y = min(pos.y() for pos in self.vertex_positions.values())
-        max_y = max(pos.y() for pos in self.vertex_positions.values())
-        graph_width = max_x - min_x
-        graph_height = max_y - min_y
-        padding = 60
-        if graph_width == 0 or graph_height == 0:
-            self._zoom = 1.0
-            self._view_offset = QPoint(0, 0)
-            self.update()
-            return
-        scale_x = (self.width() - 2 * padding) / graph_width
-        scale_y = (self.height() - 2 * padding) / graph_height
-        self._zoom = min(scale_x, scale_y)
-        # Центрируем
-        center_x = (min_x + max_x) / 2
-        center_y = (min_y + max_y) / 2
-        widget_center_x = self.width() / 2
-        widget_center_y = self.height() / 2
-        self._view_offset = QPoint(int(widget_center_x - self._zoom * center_x), int(widget_center_y - self._zoom * center_y))
-        self.update()
-
-    def wheelEvent(self, event):
-        # Масштабирование колесиком мыши
-        zoom_in_factor = 1.15
-        zoom_out_factor = 1 / zoom_in_factor
-        old_zoom = self._zoom
-        if event.angleDelta().y() > 0:
-            self._zoom *= zoom_in_factor
-        else:
-            self._zoom *= zoom_out_factor
-        self._zoom = max(0.1, min(self._zoom, 10.0))
-        # Масштабируем относительно курсора
-        mouse_pos = event.position().toPoint()
-        offset_to_mouse = mouse_pos - self._view_offset
-        scale_change = self._zoom / old_zoom
-        new_offset_to_mouse = offset_to_mouse * scale_change
-        self._view_offset += offset_to_mouse - new_offset_to_mouse
         self.update() 
