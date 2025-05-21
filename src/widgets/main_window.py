@@ -821,6 +821,9 @@ class MainWindow(QMainWindow):
             self.graph_widget.dijkstra_end_vertex = vertex
             self.graph_widget.update()
             result = self.dijkstra_algorithm.set_end_vertex(vertex)
+            # Сброс режима выбора вершины
+            self.graph_widget.waiting_for_vertex_selection = False
+            self.graph_widget.vertex_selection_callback = None
             if isinstance(result, tuple):
                 message = result[1] if len(result) > 1 else str(result[0])
                 highlight_key = result[3] if len(result) > 3 else None
@@ -1279,6 +1282,9 @@ current_edge = {current_edge}  # текущее выбранное ребро"""
             self.graph_widget.dijkstra_end_vertex = vertex
             self.graph_widget.update()
             result = self.bellman_ford_algorithm.set_end_vertex(vertex)
+            # Сброс режима выбора вершины
+            self.graph_widget.waiting_for_vertex_selection = False
+            self.graph_widget.vertex_selection_callback = None
             if isinstance(result, tuple):
                 message = result[1] if len(result) > 1 else str(result[0])
                 highlight_key = result[3] if len(result) > 3 else None
@@ -1291,7 +1297,7 @@ current_edge = {current_edge}  # текущее выбранное ребро"""
                 if highlight_key in highlight_map:
                     self.highlight_pseudocode_line(highlight_map[highlight_key])
             self.animation_timer.setInterval(self.current_delay)
-            self.animation_timer.start() 
+            self.animation_timer.start()
 
     def start_max_path(self):
         self.current_algorithm = 'MaxPath'

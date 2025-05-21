@@ -394,19 +394,21 @@ class GraphWidget(QWidget):
                     painter.setBrush(color)
                     set_label = str(idx+1) if len(self.kruskal_sets) > len(color_palette) else None
                     break
-        # Начальная и конечная вершины
+        # Для Дейкстры и Беллмана-Форда
+        current_algorithm = getattr(self.main_window, "current_algorithm", None)
+        is_dijkstra = (current_algorithm == 'Dijkstra')
+        is_bellman = (current_algorithm == 'Bellman-Ford')
         is_start = False
         is_end = False
-        # Для Дейкстры
         if getattr(self, 'dijkstra_start_vertex', None) is not None and self.dijkstra_start_vertex is not None:
             is_start = (vertex == self.dijkstra_start_vertex)
         if getattr(self, 'dijkstra_end_vertex', None) is not None and self.dijkstra_end_vertex is not None:
             is_end = (vertex == self.dijkstra_end_vertex)
-        # Для BFS/DFS не выделяем начальную/конечную вершину цветом
-        if is_start and self.main_window.current_algorithm == 'Dijkstra':
+        # Выделяем цветом для Дейкстры и Беллмана-Форда
+        if is_start and (is_dijkstra or is_bellman):
             painter.setPen(QPen(palette.windowText().color(), 2))
             painter.setBrush(QColor(255, 215, 0))  # жёлтый
-        elif is_end and self.main_window.current_algorithm == 'Dijkstra':
+        elif is_end and (is_dijkstra or is_bellman):
             painter.setPen(QPen(palette.windowText().color(), 2))
             painter.setBrush(QColor(220, 0, 0))  # красный
         elif self.adding_edge and (vertex == self.edge_start or vertex == self.selected_vertex):

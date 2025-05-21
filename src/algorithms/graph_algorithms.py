@@ -401,14 +401,14 @@ class DijkstraAlgorithm(GraphAlgorithm):
         self.main_window.graph_widget.bfs_current_edge = None
         self.main_window.graph_widget.update()
 
-        # Если все соседи обработаны или это первый шаг
+        # Если все вершины посещены, завершаем алгоритм
         if not self.unvisited:
             return self._finish_algorithm()
 
         # Находим следующую вершину для обработки
         min_vertex = self._find_min_distance_vertex()
-        if min_vertex is None:
-            return True, "Не удалось найти путь до всех вершин", self._get_state(), 'finish'
+        if min_vertex is None or self.distances[min_vertex] == float('inf'):
+            return self._finish_algorithm()
 
         # Начинаем обработку новой вершины
         self.current_vertex = min_vertex
@@ -416,11 +416,11 @@ class DijkstraAlgorithm(GraphAlgorithm):
         self.visited.add(min_vertex)
         self.main_window.graph_widget.visited_vertices = self.visited
         self.main_window.graph_widget.bfs_current = min_vertex
-        
+
         # Получаем всех соседей в отсортированном порядке
         self.current_neighbors = sorted(list(self.main_window.graph_widget.graph.neighbors(min_vertex)))
         
-        message = f"Обрабатываем вершину {min_vertex} (расстояние: {self.distances[min_vertex] if self.distances[min_vertex] != float('inf') else '∞'})"
+        message = f"Обрабатываем вершину {min_vertex} (расстояние: {self.distances[min_vertex]})"
         self.main_window.explanation_widget.append(message)
         self.main_window.graph_widget.update()
         
@@ -718,79 +718,84 @@ class BellmanFordAlgorithm(GraphAlgorithm):
         return False, f"Начинаем поиск кратчайшего пути от вершины {self.start_vertex} до вершины {end_vertex}", self._get_state(), 'init'
 
     def next_step(self):
+        """Выполняет следующий шаг алгоритма"""
         if self.waiting_for_end:
             return False, "Выберите конечную вершину", self._get_state(), 'finish'
+
         if self.negative_cycle:
-            msg = "Обнаружен отрицательный цикл! Кратчайший путь не существует."
-            self.main_window.graph_widget.bfs_current = None
-            self.main_window.graph_widget.bfs_current_edge = None
-            self.main_window.graph_widget.update()
-            return True, msg, self._get_state(), 'finish'
-        # Основной цикл (V-1 итераций)
-        if self.iteration < self.max_iterations:
-            if self.edge_index == 0:
-                self.main_window.explanation_widget.append("2. Основной цикл (V-1 раз):")
-            if self.edge_index >= len(self.edges):
-                self.iteration += 1
-                self.edge_index = 0
-                self.main_window.explanation_widget.append(f"Завершена итерация {self.iteration}")
-                self.main_window.graph_widget.bfs_current_edge = None
-                self.main_window.graph_widget.bfs_current = None
-                self.main_window.graph_widget.update()
-                return False, f"Завершена итерация {self.iteration}", self._get_state(), 'finish'
-            u, v, data = self.edges[self.edge_index]
-            weight = data.get('weight', 1)
-            self.main_window.graph_widget.bfs_current_edge = (u, v)
-            self.main_window.graph_widget.bfs_current = u
-            self.main_window.explanation_widget.append(f"Для каждого ребра ({u}, {v}) с весом {weight}:")
-            msg = f"Проверяем ребро ({u}, {v}) с весом {weight}: "
-            if self.distances[u] != float('inf'):
-                if self.distances[u] + weight < self.distances[v]:
-                    old = self.distances[v]
-                    self.distances[v] = self.distances[u] + weight
-                    self.main_window.explanation_widget.append(f"Обновляем расстояние: {old if old != float('inf') else '∞'} → {self.distances[v]} (previous[{v}] = {u})")
-                    self.previous[v] = u
-                    msg += f"Обновляем расстояние: {old if old != float('inf') else '∞'} → {self.distances[v]} (previous[{v}] = {u})"
-                else:
-                    self.main_window.explanation_widget.append(f"Без изменений. Текущее расстояние: {self.distances[v] if self.distances[v] != float('inf') else '∞'}")
-                    msg += f"Без изменений. Текущее расстояние: {self.distances[v] if self.distances[v] != float('inf') else '∞'}"
-            else:
-                self.main_window.explanation_widget.append(f"Без изменений. Текущее расстояние: {self.distances[v] if self.distances[v] != float('inf') else '∞'}")
-                msg += f"Без изменений. Текущее расстояние: {self.distances[v] if self.distances[v] != float('inf') else '∞'}"
-            self.main_window.graph_widget.distances = self.distances.copy()
-            self.main_window.graph_widget.update()
-            self.edge_index += 1
-            return False, msg, self._get_state(), 'main_loop'
-        # Проверка на отрицательные циклы
-        if self.iteration == self.max_iterations:
-            self.main_window.explanation_widget.append("3. Проверка на отрицательные циклы:")
+            return True, "Обнаружен отрицательный цикл! Кратчайший путь не существует.", self._get_state(), 'finish'
+
+        # Если все итерации завершены
+        if self.iteration >= self.max_iterations:
+            # Проверка на отрицательные циклы
+            self.main_window.explanation_widget.append("Проверка на отрицательные циклы:")
             for u, v, data in self.edges:
                 weight = data.get('weight', 1)
                 if self.distances[u] != float('inf') and self.distances[u] + weight < self.distances[v]:
                     self.negative_cycle = True
-                    self.main_window.explanation_widget.append(f"Обнаружен отрицательный цикл по ребру ({u}, {v})!")
                     self.main_window.graph_widget.bfs_current_edge = (u, v)
                     self.main_window.graph_widget.update()
-                    return True, "Обнаружен отрицательный цикл! Кратчайший путь не существует.", self._get_state(), 'finish'
-            # Восстановление пути
-            self.main_window.explanation_widget.append("4. Восстановление пути:")
+                    return True, f"Обнаружен отрицательный цикл по ребру ({u}, {v})! Кратчайший путь не существует.", self._get_state(), 'finish'
+            
+            # Если отрицательных циклов нет, восстанавливаем путь
+            return self._finish_algorithm()
+
+        # Обработка текущего ребра
+        if self.edge_index < len(self.edges):
+            u, v, data = self.edges[self.edge_index]
+            weight = data.get('weight', 1)
+            
+            self.main_window.graph_widget.bfs_current_edge = (u, v)
+            self.main_window.graph_widget.bfs_current = u
+            
+            message = f"Проверяем ребро ({u}, {v}) с весом {weight}: "
+            
+            if self.distances[u] != float('inf'):
+                new_distance = self.distances[u] + weight
+                if new_distance < self.distances[v]:
+                    old_distance = self.distances[v]
+                    self.distances[v] = new_distance
+                    self.previous[v] = u
+                    message += f"Обновляем расстояние: {old_distance if old_distance != float('inf') else '∞'} → {new_distance}"
+                else:
+                    message += f"Без изменений. Текущее расстояние: {self.distances[v] if self.distances[v] != float('inf') else '∞'}"
+            else:
+                message += f"Без изменений. Текущее расстояние: {self.distances[v] if self.distances[v] != float('inf') else '∞'}"
+            
+            self.main_window.graph_widget.distances = self.distances.copy()
+            self.main_window.explanation_widget.append(message)
+            self.main_window.graph_widget.update()
+            
+            self.edge_index += 1
+            return False, message, self._get_state(), 'main_loop'
+        
+        # Переход к следующей итерации
+        self.iteration += 1
+        self.edge_index = 0
+        message = f"Завершена итерация {self.iteration}"
+        self.main_window.explanation_widget.append(message)
+        self.main_window.graph_widget.bfs_current_edge = None
+        self.main_window.graph_widget.bfs_current = None
+        self.main_window.graph_widget.update()
+        
+        return False, message, self._get_state(), 'main_loop'
+
+    def _finish_algorithm(self):
+        self.main_window.explanation_widget.append("Восстановление пути: Если previous[end] не null:")
+        if self.end_vertex is not None:
             self.shortest_path = self._reconstruct_path()
             path_edges = [(self.shortest_path[i], self.shortest_path[i+1]) for i in range(len(self.shortest_path)-1)]
             self.main_window.graph_widget.bfs_path = path_edges
             distance = self.distances[self.end_vertex]
             if distance == float('inf'):
-                self.main_window.explanation_widget.append("5. Завершение")
-                msg = f"Путь до вершины {self.end_vertex} не найден"
+                message = f"Путь до вершины {self.end_vertex} не найден"
             else:
-                self.main_window.explanation_widget.append("5. Завершение")
                 path_str = " → ".join(map(str, self.shortest_path))
-                msg = f"Найден кратчайший путь длиной {distance}:\n{path_str}"
+                message = f"Найден кратчайший путь длиной {distance}:\n{path_str}"
             self.main_window.graph_widget.bfs_current = None
             self.main_window.graph_widget.bfs_current_edge = None
             self.main_window.graph_widget.update()
-            self.iteration += 1  # чтобы не заходить сюда снова
-            return True, msg, self._get_state(), 'finish'
-        self.main_window.explanation_widget.append("5. Завершение")
+            return True, message, self._get_state(), 'finish'
         return True, "Поиск завершён!", self._get_state(), 'finish'
 
     def _reconstruct_path(self):
@@ -829,60 +834,6 @@ class BellmanFordAlgorithm(GraphAlgorithm):
             'shortest_path': self.shortest_path,
             'path': self.shortest_path
         }
-
-    def get_pseudocode(self):
-        return [
-            "1. Инициализация:",
-            "   distances = {v: ∞ для всех вершин v}  // расстояния до вершин",
-            "   previous = {v: null для всех вершин v} // предыдущие вершины",
-            "   distances[start] = 0                   // расстояние до начальной вершины",
-            "   path = []                             // путь до конечной вершины",
-            "",
-            "2. Основной цикл:",
-            "   Пока есть непосещенные вершины:",
-            "       v = вершина с min расстоянием среди непосещенных",
-            "       Если v не найдена, выход         // нет пути до оставшихся вершин",
-            "       Помечаем v как посещенную",
-            "",
-            "       // Обновляем расстояния до соседей:",
-            "       Для каждого соседа u вершины v:",
-            "           d = distances[v] + вес ребра (v,u)",
-            "           Если d < distances[u]:",
-            "               distances[u] = d          // найден более короткий путь",
-            "               previous[u] = v           // запоминаем предыдущую вершину",
-            "           Иначе:",
-            "               # оставляем текущее расстояние",
-            "",
-            "3. Восстановление пути:",
-            "   Если previous[end] не null:",
-            "       current = end",
-            "       Пока current не null:",
-            "           path.append(current)",
-            "           current = previous[current]",
-            "       path.reverse()",
-            "",
-            "4. Завершение:",
-            "   Возвращаем distances[end], path"
-        ]
-
-    def get_highlight_map(self):
-        return {
-            'init': 0,
-            'main_loop': 7,
-            'edge_loop': 9,
-            'update_distance': 11,
-            'update_previous': 12,
-            'cycle_check': 15,
-            'cycle_found': 17,
-            'path_recovery': 21,
-            'finish': 27
-        }
-
-    def get_name(self):
-        return "Bellman-Ford (поиск кратчайшего пути)"
-
-    def get_description(self):
-        return "Алгоритм Беллмана-Форда — эффективный способ поиска кратчайших путей в графе с отрицательными весами рёбер."
 
 class MaxPathAlgorithm(GraphAlgorithm):
     """Поиск максимального простого пути между двумя вершинами (как в graphonline), с подробной визуализацией процесса поиска"""
@@ -955,11 +906,14 @@ class MaxPathAlgorithm(GraphAlgorithm):
         return False, f"Начинаем поиск максимального пути от вершины {self.start_vertex} до вершины {self.end_vertex}", self._get_state(), 'init'
 
     def next_step(self):
+        """Выполняет следующий шаг алгоритма"""
         if self.waiting_for_end:
             return False, "Выберите конечную вершину", self._get_state(), 'finish'
+
         if self.finished:
             msg = self._final_message()
             return True, msg, self._get_state(), 'finish'
+
         if not self.stack:
             self.finished = True
             msg = self._final_message()
@@ -989,6 +943,7 @@ class MaxPathAlgorithm(GraphAlgorithm):
                 new_visited.add(neighbor)
                 new_neighbors_iter = iter(self.main_window.graph_widget.graph.neighbors(neighbor))
                 self.stack.append((neighbor, new_path, weight + edge_weight, new_visited, new_neighbors_iter, current))
+                
                 explanation = f"Переходим по ребру ({current}, {neighbor}) с весом {edge_weight}"
                 self.last_step = (current, neighbor)
                 self.last_backtrack = False
@@ -1006,11 +961,12 @@ class MaxPathAlgorithm(GraphAlgorithm):
                 if weight > self.max_weight:
                     self.max_weight = weight
                     self.max_path = path.copy()
-                    explanation = "Найден новый максимальный путь!"
+                    explanation = f"Найден новый максимальный путь длиной {weight}!"
                 else:
-                    explanation = "Достигли конечной вершины, но путь не максимальный."
+                    explanation = f"Достигли конечной вершины, но путь длиной {weight} не максимальный (текущий максимум: {self.max_weight})"
             else:
                 explanation = f"Возврат назад из вершины {current}"
+            
             self.stack.pop()
             self.last_backtrack = True
             self.main_window.explanation_widget.append(explanation)
