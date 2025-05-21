@@ -651,4 +651,64 @@ class GraphWidget(QWidget):
         self.vertex_selection_callback = None
         self.dijkstra_start_vertex = None
         self.dijkstra_end_vertex = None
+        self.kruskal_total_weight = None
+        self.kruskal_sets.clear()
+        self.update()
+
+    def update_fit_button_pos(self):
+        margin = 10
+        w = self.width()
+        if w > 1200:
+            size = 32
+        elif w > 800:
+            size = 24
+        else:
+            size = 18
+        self.fit_button.setFixedSize(size, size)
+        self.fit_button.move(self.width() - size - margin, self.height() - size - margin)
+        self.fit_button.raise_()
+
+    def fit_to_view(self):
+        # Центрирует и масштабирует граф так, чтобы он полностью помещался на холсте
+        if not self.vertex_positions:
+            return
+        min_x = min(pos.x() for pos in self.vertex_positions.values())
+        max_x = max(pos.x() for pos in self.vertex_positions.values())
+        min_y = min(pos.y() for pos in self.vertex_positions.values())
+        max_y = max(pos.y() for pos in self.vertex_positions.values())
+        graph_width = max_x - min_x
+        graph_height = max_y - min_y
+        padding = 60
+        if graph_width == 0 or graph_height == 0:
+            self._zoom = 1.0
+            self._view_offset = QPoint(0, 0)
+            self.update()
+            return
+        scale_x = (self.width() - 2 * padding) / graph_width
+        scale_y = (self.height() - 2 * padding) / graph_height
+        self._zoom = min(scale_x, scale_y)
+        # Центрируем
+        center_x = (min_x + max_x) / 2
+        center_y = (min_y + max_y) / 2
+        widget_center_x = self.width() / 2
+        widget_center_y = self.height() / 2
+        self._view_offset = QPoint(int(widget_center_x - self._zoom * center_x), int(widget_center_y - self._zoom * center_y))
+        self.update()
+
+    def wheelEvent(self, event):
+        # Масштабирование колесиком мыши
+        zoom_in_factor = 1.15
+        zoom_out_factor = 1 / zoom_in_factor
+        old_zoom = self._zoom
+        if event.angleDelta().y() > 0:
+            self._zoom *= zoom_in_factor
+        else:
+            self._zoom *= zoom_out_factor
+        self._zoom = max(0.1, min(self._zoom, 10.0))
+        # Масштабируем относительно курсора
+        mouse_pos = event.position().toPoint()
+        offset_to_mouse = mouse_pos - self._view_offset
+        scale_change = self._zoom / old_zoom
+        new_offset_to_mouse = offset_to_mouse * scale_change
+        self._view_offset += offset_to_mouse - new_offset_to_mouse
         self.update() 
