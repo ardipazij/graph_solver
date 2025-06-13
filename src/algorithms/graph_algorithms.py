@@ -926,8 +926,9 @@ class MaxPathAlgorithm(GraphAlgorithm):
             self.last_backtrack = False
 
         current, path, weight, visited, neighbors_iter, parent = self.stack[-1]
-        self.current_path = path
+        self.current_path = path.copy()  # Создаем копию пути
         self.current_weight = weight
+        self.visited = visited.copy()    # Создаем копию множества посещенных вершин
         self.main_window.graph_widget.bfs_current = current
         self.main_window.graph_widget.bfs_path = [(path[i], path[i+1]) for i in range(len(path)-1)]
 
@@ -939,7 +940,7 @@ class MaxPathAlgorithm(GraphAlgorithm):
                 self.main_window.graph_widget.update()
                 edge_weight = self.main_window.graph_widget.graph[current][neighbor].get('weight', 1)
                 new_path = path + [neighbor]
-                new_visited = set(visited)
+                new_visited = visited.copy()
                 new_visited.add(neighbor)
                 new_neighbors_iter = iter(self.main_window.graph_widget.graph.neighbors(neighbor))
                 self.stack.append((neighbor, new_path, weight + edge_weight, new_visited, new_neighbors_iter, current))
@@ -987,14 +988,29 @@ class MaxPathAlgorithm(GraphAlgorithm):
             return "Путь не найден"
 
     def _get_state(self):
+        """Возвращает текущее состояние алгоритма"""
+        current_stack = []
+        for vertex, path, weight, visited, _, _ in self.stack:
+            current_stack.append({
+                'vertex': vertex,
+                'path': path,
+                'weight': weight,
+                'visited': list(visited)
+            })
+            
         return {
             'max_path': self.max_path,
             'max_weight': self.max_weight,
             'current_path': self.current_path,
             'current_weight': self.current_weight,
-            'stack_size': len(self.stack),
+            'stack': current_stack,
             'paths_checked': self.paths_checked,
-            'visited': sorted(self.current_path) if self.current_path else []
+            'visited': sorted(list(self.visited)),
+            'start_vertex': self.start_vertex,
+            'end_vertex': self.end_vertex,
+            'last_step': self.last_step,
+            'waiting_for_end': self.waiting_for_end,
+            'finished': self.finished
         }
 
     def get_pseudocode(self):
