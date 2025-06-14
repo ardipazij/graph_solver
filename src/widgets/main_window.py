@@ -1195,23 +1195,33 @@ path = {path}  # текущий путь
 current_edge = {current_edge}  # текущее обрабатываемое ребро"""
 
         elif algorithm == 'MaxPath':
-            distances = state.get('distances', {})
-            previous = state.get('previous', {})
-            unvisited = state.get('unvisited', set())
-            path = state.get('path', [])
-            current_vertex = state.get('current_vertex', None)
-            current_neighbor = state.get('current_neighbor', None)
-            current_distance = state.get('current_distance', None)
+            max_path = state.get('max_path', [])
+            max_weight = state.get('max_weight', float('-inf'))
+            current_path = state.get('current_path', [])
+            current_weight = state.get('current_weight', 0)
+            stack = state.get('stack', [])
+            paths_checked = state.get('paths_checked', 0)
+            visited = state.get('visited', [])
+            start_vertex = state.get('start_vertex', None)
+            end_vertex = state.get('end_vertex', None)
+            last_step = state.get('last_step', None)
+            waiting_for_end = state.get('waiting_for_end', False)
+            finished = state.get('finished', False)
             
             text = f"""Состояние переменных:
-distances = {distances}  # расстояния до вершин (ищем максимум)
-previous = {previous}  # предыдущие вершины для восстановления пути
-unvisited = {sorted(list(unvisited))}  # непосещенные вершины
-path = {path}  # текущий максимальный путь
-current_vertex = {current_vertex}  # текущая обрабатываемая вершина
-current_neighbor = {current_neighbor}  # текущий обрабатываемый сосед
-current_distance = {current_distance}  # текущее расстояние"""
-            
+max_path = {max_path}  # текущий максимальный путь
+max_weight = {max_weight}  # вес максимального пути
+current_path = {current_path}  # текущий исследуемый путь
+current_weight = {current_weight}  # вес текущего пути
+stack = {stack}  # стек для DFS
+paths_checked = {paths_checked}  # количество проверенных путей
+visited = {visited}  # посещенные вершины
+start_vertex = {start_vertex}  # начальная вершина
+end_vertex = {end_vertex}  # конечная вершина
+last_step = {last_step}  # последний сделанный шаг
+waiting_for_end = {waiting_for_end}  # ожидание выбора конечной вершины
+finished = {finished}  # алгоритм завершен"""
+
         elif algorithm == 'Kruskal':
             mst_edges = state.get('mst_edges', [])
             parent = state.get('parent', {})
